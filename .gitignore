@@ -1,0 +1,23 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# CMake generated files
+out/
+build/
+cmake-build-*/
+
+# Build artifacts
+*.exe
+*.obj
+*.lib
+*.dll
+*.pdb
+
+# Debug / profiling artifacts
+*.ilk
+
+# OS files
+.DS_Store
+Thumbs.db
