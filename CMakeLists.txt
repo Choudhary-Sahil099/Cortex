@@ -161,6 +161,7 @@ add_executable(cortex_tests
 
     #index tests
     tests/index/hnsw_level_generator_test.cpp
+    tests/index/hnsw_test.cpp
 )
 
 target_link_libraries(cortex_tests
