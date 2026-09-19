@@ -18,25 +18,29 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ============================================================
 
 add_library(cortex_core
+
+    #core files
     src/core/buffer.cpp
+    src/core/cpu_features.cpp
 
+    #vector files
     src/vector/vector.cpp
-     src/vector/vector_batch.cpp
+    src/vector/vector_batch.cpp
     src/vector/vector_store.cpp
-
     src/vector/distance.cpp
     src/vector/distance_scalar.cpp
     src/vector/dot_product.cpp
     src/vector/batch_distance.cpp
     src/vector/batch_distance_reference.cpp
     src/vector/batch_distance_simd.cpp
-
     src/vector/search.cpp
-
-
-    src/core/cpu_features.cpp
     src/vector/backend.cpp
     src/vector/similarity.cpp
+
+    #index files
+    src/index/hnsw_node.cpp # kepp this above
+    src/index/hnsw.cpp
+    src/index/hnsw_level_generator.cpp
 )
 
 target_include_directories(cortex_core
@@ -55,11 +59,7 @@ if(MSVC)
         /arch:AVX2
     )
 
-    # Generate MSVC assembly listing for distance.cpp.
-    #
-    # Output:
-    #   out/build/<configuration>/distance.asm
-    #
+    # Generate MSVC assembly listing for distance.cpp
     set_source_files_properties(
         src/vector/distance.cpp
         PROPERTIES
@@ -147,13 +147,20 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_executable(cortex_tests
-    tests/distance_test.cpp
-    tests/buffer_test.cpp
-    tests/vector_test.cpp
-    tests/vector_batch_test.cpp
-    tests/search_test.cpp
-    tests/batch_distance_test.cpp
-    tests/vector_store_test.cpp
+    #core tests
+    tests/core/buffer_test.cpp
+
+
+    #vector tests
+    tests/vector/distance_test.cpp
+    tests/vector/vector_test.cpp
+    tests/vector/vector_batch_test.cpp
+    tests/vector/search_test.cpp
+    tests/vector/batch_distance_test.cpp
+    tests/vector/vector_store_test.cpp
+
+    #index tests
+    tests/index/hnsw_level_generator_test.cpp
 )
 
 target_link_libraries(cortex_tests
