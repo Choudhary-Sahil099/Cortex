@@ -76,6 +76,11 @@ namespace cortex::index {
         
         //
         void connectSelectedNeighbours(std::size_t node_id, const std::vector<HNSWSearchResult>& candidates, std::size_t level);
+        // prune helper
+        void pruneNeighbours(std::size_t node_id, std::size_t level);
+
+        // node remover
+        void disconnectNodes(std::size_t first, std::size_t second, std::size_t level);
     };
     
 }

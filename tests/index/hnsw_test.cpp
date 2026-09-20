@@ -436,3 +436,91 @@ TEST(HNSWTest, InsertedGraphCanBeSearched) {
 
     EXPECT_EQ(results.front().id, 2);
 }
+
+// ---------------------
+///---------------Test M ----
+// ---------------
+
+TEST(HNSWTest, NeighborCountDoesNotExceedM) {
+
+    constexpr std::size_t M = 2;
+
+    HNSWIndex index(
+        4,
+        M,
+        20,
+        20
+    );
+
+    for (std::size_t i = 0; i < 20; ++i) {
+
+        Vector vector(4);
+
+        vector[0] =
+            static_cast<float>(i);
+
+        index.insert(vector);
+    }
+
+    for (std::size_t id = 0;
+        id < index.size();
+        ++id) {
+
+        const auto& neighbors =
+            index.node(id).neighbors(0);
+
+        EXPECT_LE(
+            neighbors.size(),
+            M
+        );
+    }
+}
+
+
+
+//symetry
+TEST(HNSWTest, NeighborConnectionsRemainBidirectional) {
+
+    constexpr std::size_t M = 3;
+
+    HNSWIndex index(
+        4,
+        M,
+        20,
+        20
+    );
+
+    for (std::size_t i = 0; i < 20; ++i) {
+
+        Vector vector(4);
+
+        vector[0] =
+            static_cast<float>(i);
+
+        index.insert(vector);
+    }
+
+    for (std::size_t id = 0;
+        id < index.size();
+        ++id) {
+
+        const auto& neighbors =
+            index.node(id).neighbors(0);
+
+        for (const std::size_t neighbor :
+        neighbors) {
+
+            const auto& reverse_neighbors =
+                index.node(neighbor).neighbors(0);
+
+            EXPECT_NE(
+                std::find(
+                    reverse_neighbors.begin(),
+                    reverse_neighbors.end(),
+                    id
+                ),
+                reverse_neighbors.end()
+            );
+        }
+    }
+}

@@ -511,9 +511,13 @@ namespace cortex::index {
         std::size_t level
     ) {
         const auto selected =
-            select_neighbors(candidates, M_);
+            select_neighbors(
+                candidates,
+                M_
+            );
 
         for (const auto& candidate : selected) {
+
             if (candidate.id == node_id) {
                 continue;
             }
@@ -523,6 +527,131 @@ namespace cortex::index {
                 candidate.id,
                 level
             );
+
+            pruneNeighbours(
+                candidate.id,
+                level
+            );
         }
+
+        pruneNeighbours(
+            node_id,
+            level
+        );
+    }
+
+    // prune helper implementation --> second imp
+    void HNSWIndex::pruneNeighbours(
+        std::size_t node_id,
+        std::size_t level
+    ) {
+        HNSWNode& node = *nodes_[node_id];
+
+        auto& neighbours =
+            node.neighbors(level);
+
+        if (neighbours.size() <= M_) {
+            return;
+        }
+
+        const auto& backend =
+            cortex::vector::get_vector_backend();
+
+        const float* node_data =
+            vector_store_.vector_data(node_id);
+
+        std::vector<HNSWSearchResult> candidates;
+
+        candidates.reserve(neighbours.size());
+
+        for (const std::size_t neighbor_id : neighbours) {
+
+            const float distance =
+                backend.raw_l2_distance(
+                    node_data,
+                    vector_store_.vector_data(neighbor_id),
+                    dimension_
+                );
+
+            candidates.push_back({
+                neighbor_id,
+                distance
+                });
+        }
+
+        const auto selected =
+            select_neighbors(
+                candidates,
+                M_
+            );
+
+        std::vector<std::size_t> selected_ids;
+
+        selected_ids.reserve(selected.size());
+
+        for (const auto& candidate : selected) {
+            selected_ids.push_back(candidate.id);
+        }
+
+        std::vector<std::size_t> removed;
+
+        for (const std::size_t neighbor_id : neighbours) {
+
+            if (
+                std::find(
+                    selected_ids.begin(),
+                    selected_ids.end(),
+                    neighbor_id
+                ) == selected_ids.end()
+                ) {
+                removed.push_back(neighbor_id);
+            }
+        }
+
+        for (const std::size_t neighbor_id : removed) {
+            disconnectNodes(
+                node_id,
+                neighbor_id,
+                level
+            );
+        }
+    }
+
+    // node remove code
+    void HNSWIndex::disconnectNodes(
+        std::size_t first,
+        std::size_t second,
+        std::size_t level
+    ) {
+        if (first >= nodes_.size() ||
+            second >= nodes_.size()) {
+            throw std::out_of_range(
+                "HNSW node ID out of range"
+            );
+        }
+
+        auto& firstNeighbours =
+            nodes_[first]->neighbors(level);
+
+        firstNeighbours.erase(
+            std::remove(
+                firstNeighbours.begin(),
+                firstNeighbours.end(),
+                second
+            ),
+            firstNeighbours.end()
+        );
+
+        auto& secondNeighbours =
+            nodes_[second]->neighbors(level);
+
+        secondNeighbours.erase(
+            std::remove(
+                secondNeighbours.begin(),
+                secondNeighbours.end(),
+                first
+            ),
+            secondNeighbours.end()
+        );
     }
 }
