@@ -3,14 +3,15 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-
+#include <cstdint>
 namespace cortex::index {
 
     HNSWLevelGenerator::HNSWLevelGenerator(
-        double level_multiplier
+        double level_multiplier,
+        std::uint64_t seed
     )
         : level_multiplier_(level_multiplier),
-        generator_(std::random_device{}()),
+        generator_(seed),
         distribution_(0.0, 1.0) {
 
         if (level_multiplier <= 0.0) {

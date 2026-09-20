@@ -13,7 +13,8 @@ namespace cortex::index {
         std::size_t dimension,
         std::size_t M,
         std::size_t ef_construction, // explore while building a graph
-		std::size_t ef_search // explore while quering a graph
+		std::size_t ef_search, // explore while quering a graph
+        std::uint64_t seed
     )
         : dimension_(dimension),// check the dimension
         M_(M), // no of neighbours during construction
@@ -22,7 +23,7 @@ namespace cortex::index {
 		max_level_(0), // the maximum level of the index
         entry_point_(std::numeric_limits<std::size_t>::max()),
         vector_store_(dimension),
-        level_generator_()
+        level_generator_(1.0, seed)
     {
 
         if (dimension == 0) {
@@ -104,25 +105,6 @@ namespace cortex::index {
         }
         return vector_store_.vector_data(id);
     }
-    // temp test code
-  //  std::size_t HNSWIndex::insert(const vector::Vector& vector) {
-  //      // check the dimension of the vector
-  //      if (vector.dimension() != dimension_) {
-		//	throw::std::invalid_argument("dimensions not mathch");
-  //      }
-  //      vector_store_.add(vector);
-  //      const std::size_t id = vector_store_.size() - 1; // we need the vector store size not the node size anymore 
-		//const std::size_t level = level_generator_.generate(); // the number of levels for a new node 
-  //      auto node = std::make_unique<HNSWNode>(id, level);
-		//nodes_.push_back(std::move(node)); // add the nodde to the list of the nodes in the index
-
-  //      // check only the first node 
-  //      if (nodes_.size() == 1) {
-  //          entry_point_ = id;
-  //          max_level_ = level;
-  //      }
-  //      return id; // return the id of the newly inserted node
-  //  }
 	
     std::size_t HNSWIndex::insert(
         const vector::Vector& vector
@@ -176,37 +158,11 @@ namespace cortex::index {
                     current_entry,
                     current_level
                 );
-        }
-
-    
+        }    
         //Search and connect at every level
          
         const std::size_t lowest_level =
             std::min(level, max_level_);
-
-        //for (
-        //    std::size_t current_level = lowest_level + 1;
-        //    current_level-- > 0; // this is not for the production code but for testing only
-        //    ) {
-        //    const auto candidates =
-        //        search_layer(
-        //            vector,
-        //            { current_entry },
-        //            ef_construction_,
-        //            current_level
-        //        );
-
-        //    connectSelectedNeighbours(
-        //        id,
-        //        candidates,
-        //        current_level
-        //    );
-
-        //    if (!candidates.empty()) {
-        //        current_entry =
-        //            candidates.front().id;
-        //    }
-        //}
 
         //cleaner loop than prev
         for (
@@ -510,12 +466,30 @@ namespace cortex::index {
         const std::vector<HNSWSearchResult>& candidates,
         std::size_t level
     ) {
+
+        const auto& backend = cortex::vector::get_vector_backend();
+
+        const neighbourDistanceFunction distanceFunction =
+            [this, &backend](std::size_t first, std::size_t second) {
+
+            return backend.raw_l2_distance(
+                this->vector_data(first),
+                this->vector_data(second),
+                this->dimension_);
+            };
+        const std::size_t max_neighbours =
+            (level == 0)
+            ? 2 * M_
+            : M_;
+
         const auto selected =
             select_neighbors(
                 candidates,
-                M_
+                max_neighbours,
+                distanceFunction
             );
-
+        std::vector<std::size_t> affected_nodes;
+        affected_nodes.reserve(selected.size());
         for (const auto& candidate : selected) {
 
             if (candidate.id == node_id) {
@@ -528,12 +502,19 @@ namespace cortex::index {
                 level
             );
 
-            pruneNeighbours(
-                candidate.id,
-                level
+            affected_nodes.push_back(
+                candidate.id
             );
         }
 
+        for (const std::size_t neighbour_id :
+        affected_nodes) {
+
+            pruneNeighbours(
+                neighbour_id,
+                level
+            );
+        }
         pruneNeighbours(
             node_id,
             level
@@ -545,17 +526,30 @@ namespace cortex::index {
         std::size_t node_id,
         std::size_t level
     ) {
+
+        const auto& backend = cortex::vector::get_vector_backend();
+
+        const neighbourDistanceFunction distanceFunction =
+            [this, &backend](std::size_t first, std::size_t second) {
+
+            return backend.raw_l2_distance(
+                this->vector_data(first),
+                this->vector_data(second),
+                this->dimension_);
+            };
         HNSWNode& node = *nodes_[node_id];
 
         auto& neighbours =
             node.neighbors(level);
 
-        if (neighbours.size() <= M_) {
+        const std::size_t max_neighbours =
+            (level == 0)
+            ? 2 * M_
+            : M_;
+
+        if (neighbours.size() <= max_neighbours) {
             return;
         }
-
-        const auto& backend =
-            cortex::vector::get_vector_backend();
 
         const float* node_data =
             vector_store_.vector_data(node_id);
@@ -582,7 +576,8 @@ namespace cortex::index {
         const auto selected =
             select_neighbors(
                 candidates,
-                M_
+                max_neighbours,
+                distanceFunction
             );
 
         std::vector<std::size_t> selected_ids;
@@ -653,5 +648,69 @@ namespace cortex::index {
             ),
             secondNeighbours.end()
         );
+    }
+
+    std::vector<HNSWSearchResult> HNSWIndex::search(
+        const vector::Vector& query,
+        std::size_t k,
+        std::size_t ef_search
+    ) const {
+        if (query.dimension() != dimension_)
+            throw std::invalid_argument(
+                "Query dimension does not match index dimension"
+            );
+
+        if (k == 0)
+            throw std::invalid_argument(
+                "k must be greater than zero"
+            );
+
+        if (ef_search == 0)
+            throw std::invalid_argument(
+                "ef_search must be greater than zero"
+            );
+
+        if (nodes_.empty())
+            return {};
+
+        const std::size_t search_ef =
+            std::max(ef_search, k);
+
+        std::size_t current_entry = entry_point_;
+
+        for (std::size_t level = max_level_;
+            level > 0;
+            --level) {
+
+            current_entry =
+                greedySearch(
+                    query,
+                    current_entry,
+                    level
+                );
+        }
+
+        const auto candidates =
+            search_layer(
+                query,
+                { current_entry },
+                search_ef,
+                0
+            );
+
+        const std::size_t result_count =
+            std::min(k, candidates.size());
+
+        return std::vector<HNSWSearchResult>(
+            candidates.begin(),
+            candidates.begin() + result_count
+        );
+    }
+
+    std::vector<HNSWSearchResult> HNSWIndex::search(
+        const vector::Vector& query,
+        std::size_t k
+    ) const {
+        return search(query, k, ef_search_);
     }
 }

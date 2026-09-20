@@ -4,9 +4,66 @@
 
 #include <algorithm> // for search test 
 
+//brute force test 
+#include <cmath>
+#include <vector>
+#include <algorithm>
+#include <random>
+
 using cortex::index::HNSWIndex;
 using cortex::vector::Vector;
 
+// brute force impletation
+namespace {
+
+    std::vector<cortex::index::HNSWSearchResult>
+        brute_force_search(
+            const cortex::index::HNSWIndex& index,
+            const cortex::vector::Vector& query,
+            std::size_t k
+        ) {
+        std::vector<cortex::index::HNSWSearchResult> results;
+
+        for (std::size_t id = 0; id < index.size(); ++id) {
+
+            const float* data =
+                index.vector_data(id);
+
+            float distance = 0.0f;
+
+            for (std::size_t i = 0;
+                i < query.dimension();
+                ++i) {
+
+                const float difference =
+                    query[i] - data[i];
+
+                distance +=
+                    difference * difference;
+            }
+
+            results.push_back({
+                id,
+                std::sqrt(distance)
+                });
+        }
+
+        std::sort(
+            results.begin(),
+            results.end(),
+            [](const auto& a, const auto& b) {
+                return a.distance < b.distance;
+            }
+        );
+
+        if (results.size() > k) {
+            results.resize(k);
+        }
+
+        return results;
+    }
+
+};
 TEST(HNSWTest, StartsEmpty) {
 
     HNSWIndex index(128);
@@ -523,4 +580,378 @@ TEST(HNSWTest, NeighborConnectionsRemainBidirectional) {
             );
         }
     }
+}
+
+//--------------
+//---------search tests------
+//-----------------
+
+TEST(HNSWTest, SearchReturnsNearestNeighbor) {
+
+    HNSWIndex index(
+        1,
+        2,
+        10,
+        10
+    );
+
+    cortex::vector::Vector a(1);
+    a[0] = 0.0f;
+
+    cortex::vector::Vector b(1);
+    b[0] = 5.0f;
+
+    cortex::vector::Vector c(1);
+    c[0] = 10.0f;
+
+    index.insert(a);
+    index.insert(b);
+    index.insert(c);
+
+    cortex::vector::Vector query(1);
+    query[0] = 9.0f;
+
+    const auto results =
+        index.search(query, 1);
+
+    ASSERT_EQ(results.size(), 1);
+
+    EXPECT_EQ(results[0].id, 2);
+
+    EXPECT_FLOAT_EQ(
+        results[0].distance,
+        1.0f
+    );
+}
+
+TEST(HNSWTest, SearchReturnsTopKResults) {
+
+    HNSWIndex index(
+        1,
+        3,
+        20,
+        20
+    );
+
+    cortex::vector::Vector a(1);
+    a[0] = 0.0f;
+
+    cortex::vector::Vector b(1);
+    b[0] = 2.0f;
+
+    cortex::vector::Vector c(1);
+    c[0] = 5.0f;
+
+    cortex::vector::Vector d(1);
+    d[0] = 10.0f;
+
+    index.insert(a);
+    index.insert(b);
+    index.insert(c);
+    index.insert(d);
+
+    cortex::vector::Vector query(1);
+    query[0] = 4.0f;
+
+    const auto results =
+        index.search(query, 3); // three elements only
+
+    ASSERT_EQ(results.size(), 3);
+
+    EXPECT_EQ(results[0].id, 2);
+    EXPECT_EQ(results[1].id, 1);
+    EXPECT_EQ(results[0].id, 2);
+    EXPECT_EQ(results[1].id, 1);
+
+    EXPECT_EQ(results.size(), 3);
+
+    EXPECT_LE(
+        results[0].distance,
+        results[1].distance
+    );
+
+    EXPECT_LE(
+        results[1].distance,
+        results[2].distance
+    );
+}
+
+TEST(HNSWTest, SearchRejectsZeroK) {
+
+    HNSWIndex index(2);
+
+    cortex::vector::Vector query(2);
+
+    EXPECT_THROW(
+        index.search(query, 0),
+        std::invalid_argument
+    );
+}
+
+TEST(HNSWTest, SearchOnEmptyIndexReturnsEmpty) {
+
+    HNSWIndex index(2);
+
+    cortex::vector::Vector query(2);
+
+    const auto results =
+        index.search(query, 5);
+
+    EXPECT_TRUE(results.empty());
+}
+
+
+TEST(HNSWTest, SearchMatchesBruteForce) {
+
+    HNSWIndex index(
+        3,
+        4,
+        50,
+        50
+    );
+
+    for (std::size_t i = 0; i < 20; ++i) {
+
+        cortex::vector::Vector vector(3);
+
+        vector[0] = static_cast<float>(i);
+        vector[1] = static_cast<float>(i * 2);
+        vector[2] = static_cast<float>(i * 3);
+
+        index.insert(vector);
+    }
+
+    cortex::vector::Vector query(3);
+
+    query[0] = 9.2f;
+    query[1] = 18.4f;
+    query[2] = 27.6f;
+
+    constexpr std::size_t k = 5;
+
+    const auto exact =
+        brute_force_search(
+            index,
+            query,
+            k
+        );
+
+    const auto approximate =
+        index.search(
+            query,
+            k
+        );
+
+    ASSERT_EQ(approximate.size(), k);
+
+    std::size_t matches = 0;
+
+    for (const auto& result : approximate) {
+
+        const auto it =
+            std::find_if(
+                exact.begin(),
+                exact.end(),
+                [&](const auto& exact_result) {
+                    return exact_result.id == result.id;
+                }
+            );
+
+        if (it != exact.end()) {
+            ++matches;
+        }
+    }
+
+    const float recall =
+        static_cast<float>(matches) /
+        static_cast<float>(k);
+
+    EXPECT_GE(
+        recall,
+        0.8f
+    );
+}
+
+TEST(HNSWIndexTest, LayerZeroAllowsDoubleMNeighbors) {
+    constexpr std::size_t dimension = 8;
+    constexpr std::size_t M = 4;
+
+    HNSWIndex index(
+        dimension,
+        M,
+        100,
+        50,
+        42
+    );
+
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    for (std::size_t i = 0; i < 100; ++i) {
+        std::vector<float> values(dimension);
+
+        for (float& value : values) {
+            value = dist(rng);
+        }
+
+        cortex::vector::Vector vector(dimension);
+
+        std::copy(
+            values.begin(),
+            values.end(),
+            vector.data()
+        );
+
+        index.insert(std::move(vector));
+    }
+
+    for (std::size_t id = 0; id < index.size(); ++id) {
+        const auto& node = index.node(id);
+
+        // Layer 0 uses 2M.
+        EXPECT_LE(
+            node.neighbors(0).size(),
+            2 * M
+        );
+
+        // Every connection must be bidirectional.
+        for (const std::size_t neighbor : node.neighbors(0)) {
+            const auto& reverse =
+                index.node(neighbor).neighbors(0);
+
+            EXPECT_NE(
+                std::find(
+                    reverse.begin(),
+                    reverse.end(),
+                    id
+                ),
+                reverse.end()
+            );
+        }
+    }
+}
+
+
+TEST(HNSWIndexTest, UpperLayersRespectMNeighborLimit) {
+    constexpr std::size_t dimension = 8;
+    constexpr std::size_t M = 4;
+
+    HNSWIndex index(
+        dimension,
+        M,
+        100,
+        50,
+        42
+    );
+
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    for (std::size_t i = 0; i < 200; ++i) {
+        cortex::vector::Vector vector(dimension);
+
+        for (std::size_t j = 0; j < dimension; ++j) {
+            vector.data()[j] = dist(rng);
+        }
+
+        index.insert(std::move(vector));
+    }
+
+    for (std::size_t id = 0; id < index.size(); ++id) {
+        const auto& node = index.node(id);
+
+        for (std::size_t level = 1;
+            level <= node.level();
+            ++level) {
+
+            EXPECT_LE(
+                node.neighbors(level).size(),
+                M
+            );
+        }
+    }
+}
+
+TEST(HNSWIndexTest, ConnectionsNeverExceedNodeLevel) {
+    constexpr std::size_t dimension = 8;
+
+    HNSWIndex index(
+        dimension,
+        4,
+        100,
+        50,
+        42
+    );
+
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    for (std::size_t i = 0; i < 200; ++i) {
+        cortex::vector::Vector vector(dimension);
+
+        for (std::size_t j = 0; j < dimension; ++j) {
+            vector.data()[j] = dist(rng);
+        }
+
+        index.insert(std::move(vector));
+    }
+
+    for (std::size_t id = 0; id < index.size(); ++id) {
+        const auto& node = index.node(id);
+
+        for (std::size_t level = 0;
+            level <= node.level();
+            ++level) {
+
+            for (const std::size_t neighbor_id :
+            node.neighbors(level)) {
+
+                EXPECT_GE(
+                    index.node(neighbor_id).level(),
+                    level
+                );
+            }
+        }
+    }
+}
+
+TEST(HNSWIndexTest, EntryPointHasMaximumLevel) {
+    constexpr std::size_t dimension = 8;
+    constexpr std::size_t M = 4;
+
+    HNSWIndex index(
+        dimension,
+        M,
+        100,
+        50,
+        42
+    );
+
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    for (std::size_t i = 0; i < 500; ++i) {
+        cortex::vector::Vector vector(dimension);
+
+        for (std::size_t j = 0; j < dimension; ++j) {
+            vector.data()[j] = dist(rng);
+        }
+
+        index.insert(std::move(vector));
+    }
+
+    ASSERT_TRUE(index.has_entry_point());
+
+    const std::size_t max_level = index.max_level();
+
+    bool found_max_level_node = false;
+
+    for (std::size_t id = 0; id < index.size(); ++id) {
+        if (index.node(id).level() == max_level) {
+            found_max_level_node = true;
+            break;
+        }
+    }
+
+    EXPECT_TRUE(found_max_level_node);
 }

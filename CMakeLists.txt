@@ -164,6 +164,7 @@ add_executable(cortex_tests
     tests/index/hnsw_level_generator_test.cpp
     tests/index/hnsw_test.cpp
     tests/index/neighbour_selection_test.cpp
+    tests/index/hnsw_recall_test.cpp
 )
 
 target_link_libraries(cortex_tests
@@ -182,6 +183,7 @@ gtest_discover_tests(cortex_tests)
 
 add_executable(cortex_benchmarks
     benchmarks/distance_benchmark.cpp
+    benchmarks/hnsw_search_benchmark.cpp
 )
 
 target_link_libraries(cortex_benchmarks
@@ -190,6 +192,21 @@ target_link_libraries(cortex_benchmarks
         benchmark::benchmark
         benchmark::benchmark_main
 )
+
+
+#------------------------------
+#----------Experiment ----------
+#-------------------------------
+
+add_executable(hnsw_recall_latency
+    experiments/hnsw_recall_latency.cpp
+)
+
+target_link_libraries(hnsw_recall_latency
+    PRIVATE
+    cortex_core
+)
+
 
 # ============================================================
 # Build Information

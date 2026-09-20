@@ -13,7 +13,8 @@
 #include <cstddef>
 #include <memory>
 #include <vector>
-
+#include <cstdint>
+#include <random>
 namespace cortex::index {
 
     class HNSWIndex {
@@ -22,7 +23,8 @@ namespace cortex::index {
             std::size_t dimension,
             std::size_t M = 16,
             std::size_t ef_construction = 200,
-            std::size_t ef_search = 50
+            std::size_t ef_search = 50,
+            std::uint64_t seed = std::random_device{}()
         );
 
         std::size_t dimension() const;
@@ -58,6 +60,9 @@ namespace cortex::index {
 
 		// search a layer but returns only the closest node id
         std::size_t greedySearch(const vector::Vector& query, std::size_t entry_point, std::size_t level) const;
+        //search
+        std::vector<HNSWSearchResult> search(const vector::Vector& query,std::size_t k ) const;
+        std::vector<HNSWSearchResult> search(const vector::Vector& query, std::size_t k, std::size_t ef_search) const;
 
     private:
         

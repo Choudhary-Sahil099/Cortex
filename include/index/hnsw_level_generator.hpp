@@ -2,14 +2,15 @@
 
 #include <cstddef>
 #include <random>
-
+#include <cstdint>
 namespace cortex::index {
 
     //Info -> Rand Level Generation for HNSW -> randomly selects minimum level
     class HNSWLevelGenerator {
     public:
         explicit HNSWLevelGenerator(
-            double level_multiplier = 1.0
+            double level_multiplier = 1.0,
+            std::uint64_t seed = std::random_device{}()
         );
 
         std::size_t generate();
