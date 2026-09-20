@@ -41,6 +41,7 @@ add_library(cortex_core
     src/index/hnsw_node.cpp # kepp this above
     src/index/hnsw.cpp
     src/index/hnsw_level_generator.cpp
+    src/index/neighbour_selection.cpp
 )
 
 target_include_directories(cortex_core
@@ -162,6 +163,7 @@ add_executable(cortex_tests
     #index tests
     tests/index/hnsw_level_generator_test.cpp
     tests/index/hnsw_test.cpp
+    tests/index/neighbour_selection_test.cpp
 )
 
 target_link_libraries(cortex_tests

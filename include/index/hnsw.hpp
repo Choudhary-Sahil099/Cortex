@@ -46,12 +46,18 @@ namespace cortex::index {
 
         std::size_t insert(const vector::Vector& vector);
 		//parameter for search layer -> query, entry points, ef, level
+        
+        //Connect two nodes in the graph at a specific level
+        void connect_nodes(std::size_t first, std::size_t second, std::size_t level);
         std::vector<HNSWSearchResult> search_layer(
             const vector::Vector& query,
             const std::vector<std::size_t>& entry_points,
             std::size_t ef,
             std::size_t level
         ) const;
+
+		// search a layer but returns only the closest node id
+        std::size_t greedySearch(const vector::Vector& query, std::size_t entry_point, std::size_t level) const;
 
     private:
         
@@ -67,7 +73,9 @@ namespace cortex::index {
         vector::VectorStore vector_store_;
         std::vector<std::unique_ptr<HNSWNode>> nodes_;
         HNSWLevelGenerator level_generator_; // level genrator
-
+        
+        //
+        void connectSelectedNeighbours(std::size_t node_id, const std::vector<HNSWSearchResult>& candidates, std::size_t level);
     };
-
+    
 }

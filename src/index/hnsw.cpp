@@ -1,5 +1,6 @@
 #include "index/hnsw.hpp"
 #include "vector/backend.hpp"
+#include "index/neighbour_selection.hpp"
 #include <limits>
 #include <stdexcept>
 #include <algorithm>
@@ -103,25 +104,183 @@ namespace cortex::index {
         }
         return vector_store_.vector_data(id);
     }
+    // temp test code
+  //  std::size_t HNSWIndex::insert(const vector::Vector& vector) {
+  //      // check the dimension of the vector
+  //      if (vector.dimension() != dimension_) {
+		//	throw::std::invalid_argument("dimensions not mathch");
+  //      }
+  //      vector_store_.add(vector);
+  //      const std::size_t id = vector_store_.size() - 1; // we need the vector store size not the node size anymore 
+		//const std::size_t level = level_generator_.generate(); // the number of levels for a new node 
+  //      auto node = std::make_unique<HNSWNode>(id, level);
+		//nodes_.push_back(std::move(node)); // add the nodde to the list of the nodes in the index
 
-    std::size_t HNSWIndex::insert(const vector::Vector& vector) {
-        // check the dimension of the vector
+  //      // check only the first node 
+  //      if (nodes_.size() == 1) {
+  //          entry_point_ = id;
+  //          max_level_ = level;
+  //      }
+  //      return id; // return the id of the newly inserted node
+  //  }
+	
+    std::size_t HNSWIndex::insert(
+        const vector::Vector& vector
+    ) {
         if (vector.dimension() != dimension_) {
-			throw::std::invalid_argument("dimensions not mathch");
+            throw std::invalid_argument(
+                "Vector dimension does not match HNSW index dimension"
+            );
         }
-        vector_store_.add(vector);
-        const std::size_t id = vector_store_.size() - 1; // we need the vector store size not the node size anymore 
-		const std::size_t level = level_generator_.generate(); // the number of levels for a new node 
-        auto node = std::make_unique<HNSWNode>(id, level);
-		nodes_.push_back(std::move(node)); // add the nodde to the list of the nodes in the index
 
+        // vector store first
+        vector_store_.add(vector);
+
+        const std::size_t id =
+            vector_store_.size() - 1;
+
+        // Highest node level
+        const std::size_t level =
+            level_generator_.generate();
+
+        auto node =
+            std::make_unique<HNSWNode>(
+                id,
+                level
+            );
+
+        nodes_.push_back(
+            std::move(node)
+        );
+
+        // case for first node
         if (nodes_.size() == 1) {
             entry_point_ = id;
             max_level_ = level;
+
+            return id;
         }
-        return id; // return the id of the newly inserted node
+
+        std::size_t current_entry =
+            entry_point_;
+
+         //decend through levels
+        for (
+            std::size_t current_level = max_level_;
+            current_level > level;
+            --current_level
+            ) {
+            current_entry =
+                greedySearch(
+                    vector,
+                    current_entry,
+                    current_level
+                );
+        }
+
+    
+        //Search and connect at every level
+         
+        const std::size_t lowest_level =
+            std::min(level, max_level_);
+
+        //for (
+        //    std::size_t current_level = lowest_level + 1;
+        //    current_level-- > 0; // this is not for the production code but for testing only
+        //    ) {
+        //    const auto candidates =
+        //        search_layer(
+        //            vector,
+        //            { current_entry },
+        //            ef_construction_,
+        //            current_level
+        //        );
+
+        //    connectSelectedNeighbours(
+        //        id,
+        //        candidates,
+        //        current_level
+        //    );
+
+        //    if (!candidates.empty()) {
+        //        current_entry =
+        //            candidates.front().id;
+        //    }
+        //}
+
+        //cleaner loop than prev
+        for (
+            std::size_t current_level = lowest_level;
+            ;
+            --current_level
+            ) {
+            const auto candidates =
+                search_layer(
+                    vector,
+                    { current_entry },
+                    ef_construction_,
+                    current_level
+                );
+
+            connectSelectedNeighbours(
+                id,
+                candidates,
+                current_level
+            );
+
+            if (!candidates.empty()) {
+                current_entry =
+                    candidates.front().id;
+            }
+
+            if (current_level == 0) {
+                break;
+            }
+        }
+
+        // if the nodes reaches a new leevel it becomes its entry point
+        if (level > max_level_) {
+            entry_point_ = id;
+            max_level_ = level;
+        }
+
+        return id;
     }
-	
+
+    void HNSWIndex::connect_nodes(std::size_t first, std::size_t second, std::size_t level) {
+		if (first >= nodes_.size() || second >= nodes_.size()) {
+			throw std::out_of_range(
+				"node id is not in the required range"
+			);
+		}
+
+        if (first == second) {
+			throw std::invalid_argument(
+				"Same node"
+			);
+        }
+        HNSWNode& first_Node = *nodes_[first];
+        HNSWNode& second_Node = *nodes_[second];
+
+        if (level > first_Node.level() || level > second_Node.level()) {
+            throw std::invalid_argument("Level excceds");
+        }
+
+        // Find the First and the second neighbour of the first and the second node
+		auto& first_Neighbour = first_Node.neighbors(level);
+        auto& second_Neighbour = second_Node.neighbors(level);
+
+
+		// CHECK THE MAP IF THE NEIGHBOUR IS ALREADY PRESENT OR NOT IN BOTH THE FIRST AND SECOND NEIGHBOUR LISTS
+		if (std::find(first_Neighbour.begin(), first_Neighbour.end(), second) == first_Neighbour.end()) {
+			first_Neighbour.push_back(second);
+		}
+		if (std::find(second_Neighbour.begin(), second_Neighbour.end(), first) == second_Neighbour.end()) {
+			second_Neighbour.push_back(first);
+		}
+    }
+
+	// search for the nearest neighbors in a specific layer of the HNSW index
     std::vector<HNSWSearchResult> HNSWIndex::search_layer(
         const vector::Vector& query,
         const std::vector<std::size_t>& entry_points,
@@ -211,16 +370,14 @@ namespace cortex::index {
 
             visited.insert(entry_point);
         }
-
+        
+		//check while the que is not empty and the results size is less than ef
         while (!candidates.empty()) {
 
-            const Result current =
-                candidates.top();
-
+            const Result current = candidates.top();
             candidates.pop();
 
             if (results.size() >= ef) {
-
                 const float worst_distance =
                     results.top().distance;
 
@@ -291,5 +448,81 @@ namespace cortex::index {
         );
 
         return output;
+    }
+
+
+    //greedy search implementation to find the closest node in a level
+    std::size_t HNSWIndex::greedySearch(const vector::Vector& query, std::size_t entry_point, std::size_t level) const {
+        if (query.dimension() != dimension_) {
+            throw std::invalid_argument("Does not match the Index dimension");
+        }
+        if (entry_point >= nodes_.size()) {
+            throw std::out_of_range("Entry pint not in the range");
+        }
+        if (level > nodes_[entry_point]->level()) {
+            throw std::invalid_argument(
+                "Search level exceeds entry point level"
+            );
+        }
+
+        const auto& backend =
+            cortex::vector::get_vector_backend();
+
+        std::size_t current = entry_point;
+
+        float current_distance =
+            backend.raw_l2_distance(
+                query.data(),
+                vector_store_.vector_data(current),
+                dimension_
+            );
+
+        bool improved = true;
+
+        while (improved) {
+            improved = false;
+
+            const auto& neighbors =
+                nodes_[current]->neighbors(level);
+
+            for (const std::size_t neighbor : neighbors) {
+
+                const float distance =
+                    backend.raw_l2_distance(
+                        query.data(),
+                        vector_store_.vector_data(neighbor),
+                        dimension_
+                    );
+
+                if (distance < current_distance) {
+                    current = neighbor;
+                    current_distance = distance;
+                    improved = true;
+                }
+            }
+        }
+        return current;
+    }
+
+	// connect the selected neighbors to the new node at a specific level
+    void HNSWIndex::connectSelectedNeighbours(
+        std::size_t node_id,
+        const std::vector<HNSWSearchResult>& candidates,
+        std::size_t level
+    ) {
+        const auto selected =
+            select_neighbors(candidates, M_);
+
+        for (const auto& candidate : selected) {
+            if (candidate.id == node_id) {
+                continue;
+            }
+
+            connect_nodes(
+                node_id,
+                candidate.id,
+                level
+            );
+        }
     }
 }
