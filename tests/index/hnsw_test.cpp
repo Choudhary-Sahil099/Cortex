@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <random>
-
+#include <utility>
 using cortex::index::HNSWIndex;
 using cortex::vector::Vector;
 
@@ -80,7 +80,7 @@ TEST(HNSWTest, RejectsIncorrectDimension) {
     Vector vector(256);
 
     EXPECT_THROW(
-        index.insert(vector),
+        index.insert(std::move(vector)),
         std::invalid_argument
     );
 }
@@ -91,7 +91,7 @@ TEST(HNSWTest, FirstInsertionCreatesEntryPoint) {
 
     Vector vector(128);
 
-    const std::size_t id = index.insert(vector);
+    const std::size_t id = index.insert(std::move(vector));
 
     EXPECT_EQ(id, 0);
     EXPECT_EQ(index.size(), 1);
@@ -107,9 +107,9 @@ TEST(HNSWTest, MultipleInsertionsCreateUniqueIds) {
     Vector b(128);
     Vector c(128);
 
-    const std::size_t id_a = index.insert(a);
-    const std::size_t id_b = index.insert(b);
-    const std::size_t id_c = index.insert(c);
+    const std::size_t id_a = index.insert(std::move(a));
+    const std::size_t id_b = index.insert(std::move(b));
+    const std::size_t id_c = index.insert(std::move(c));
 
     EXPECT_EQ(id_a, 0);
     EXPECT_EQ(id_b, 1);
@@ -125,16 +125,16 @@ TEST(HNSWTest, MultipleInsertionsCreateUniqueIds) {
 
 
 TEST(HNSWTest, NodeIdMatchesVectorStoreIndex) {
-
+    std::cout << "INSERT BEGIN\n";
     HNSWIndex index(128);
 
     Vector a(128);
     Vector b(128);
     Vector c(128);
 
-    const std::size_t id_a = index.insert(a);
-    const std::size_t id_b = index.insert(b);
-    const std::size_t id_c = index.insert(c);
+    const std::size_t id_a = index.insert(std::move(a));
+    const std::size_t id_b = index.insert(std::move(b));
+    const std::size_t id_c = index.insert(std::move(c));
 
     EXPECT_EQ(id_a, 0);
     EXPECT_EQ(id_b, 1);
@@ -156,7 +156,7 @@ TEST(HNSWTest, VectorStorageIsPreserved) {
     vector[2] = 30.0f;
     vector[3] = 40.0f;
 
-    const std::size_t id = index.insert(vector);
+    const std::size_t id = index.insert(std::move(vector));
 
     const float* stored = index.vector_data(id);
 
@@ -180,7 +180,7 @@ TEST(HNSWTest, SearchLayerFindsEntryPoint) {
     vector[3] = 4.0f;
 
     const std::size_t id =
-        index.insert(vector);
+        index.insert(std::move(vector));
 
     std::vector<std::size_t> entry_points{
         id
@@ -217,7 +217,7 @@ TEST(HNSWTest, SearchLayerRejectsIncorrectDimension) {
 
     Vector stored(4);
 
-    index.insert(stored);
+    index.insert(std::move(stored));
 
     Vector query(8);
 
@@ -240,10 +240,10 @@ TEST(HNSWTest, ConnectsNodesBidirectionally) {
     Vector b(4);
 
     const std::size_t id_a =
-        index.insert(a);
+        index.insert(std::move(a));
 
     const std::size_t id_b =
-        index.insert(b);
+        index.insert(std::move(b));
 
     index.connect_nodes(
         id_a,
@@ -272,10 +272,10 @@ TEST(HNSWTest, DoesNotCreateDuplicateConnections) {
     Vector b(4);
 
     const std::size_t id_a =
-        index.insert(a);
+        index.insert(std::move(a));
 
     const std::size_t id_b =
-        index.insert(b);
+        index.insert(std::move(b));
 
     index.connect_nodes(id_a, id_b, 0);
     index.connect_nodes(id_a, id_b, 0);
@@ -298,7 +298,7 @@ TEST(HNSWTest, RejectsSelfConnection) {
     Vector vector(4);
 
     const std::size_t id =
-        index.insert(vector);
+        index.insert(std::move(vector));
 
     EXPECT_THROW(
         index.connect_nodes(id, id, 0),
@@ -321,13 +321,13 @@ TEST(HNSWTest, SearchLayerTraversesGraph) {
     c[0] = 10.0f;
 
     const std::size_t id_a =
-        index.insert(a);
+        index.insert(std::move(a));
 
     const std::size_t id_b =
-        index.insert(b);
+        index.insert(std::move(b));
 
     const std::size_t id_c =
-        index.insert(c);
+        index.insert(std::move(c));
 
     index.connect_nodes(id_a, id_b, 0);
     index.connect_nodes(id_b, id_c, 0);
@@ -389,9 +389,10 @@ TEST(HNSWTest, GreedySearchFindsCloserNode) {
     Vector c(4);
     c[0] = 10.0f;
 
-    const auto id_a = index.insert(a);
-    const auto id_b = index.insert(b);
-    const auto id_c = index.insert(c);
+    
+    const auto id_a = index.insert(std::move(a));
+    const auto id_b = index.insert(std::move(b));
+        const auto id_c = index.insert(std::move(c));
 
     index.connect_nodes(id_a, id_b, 0);
     index.connect_nodes(id_b, id_c, 0);
@@ -432,9 +433,9 @@ TEST(HNSWTest, InsertionCreatesConnections) {
     Vector c(4);
     c[0] = 2.0f;
 
-    index.insert(a);
-    index.insert(b);
-    index.insert(c);
+    index.insert(std::move(a));;
+    index.insert(std::move(b));
+    index.insert(std::move(c));
 
     bool found_connection = false;
 
@@ -473,10 +474,10 @@ TEST(HNSWTest, InsertedGraphCanBeSearched) {
     Vector d(4);
     d[0] = 3.0f;
 
-    index.insert(a);
-    index.insert(b);
-    index.insert(c);
-    index.insert(d);
+    index.insert(std::move(a));
+    index.insert(std::move(b));
+    index.insert(std::move(c));
+    index.insert(std::move(d));
 
     Vector query(4);
     query[0] = 2.1f;
@@ -516,7 +517,7 @@ TEST(HNSWTest, NeighborCountDoesNotExceedM) {
         vector[0] =
             static_cast<float>(i);
 
-        index.insert(vector);
+        index.insert(std::move(vector));
     }
 
     for (std::size_t id = 0;
@@ -554,7 +555,7 @@ TEST(HNSWTest, NeighborConnectionsRemainBidirectional) {
         vector[0] =
             static_cast<float>(i);
 
-        index.insert(vector);
+        index.insert(std::move(vector));
     }
 
     for (std::size_t id = 0;
@@ -604,9 +605,9 @@ TEST(HNSWTest, SearchReturnsNearestNeighbor) {
     cortex::vector::Vector c(1);
     c[0] = 10.0f;
 
-    index.insert(a);
-    index.insert(b);
-    index.insert(c);
+    index.insert(std::move(a));
+    index.insert(std::move(b));
+    index.insert(std::move(c));
 
     cortex::vector::Vector query(1);
     query[0] = 9.0f;
@@ -645,10 +646,10 @@ TEST(HNSWTest, SearchReturnsTopKResults) {
     cortex::vector::Vector d(1);
     d[0] = 10.0f;
 
-    index.insert(a);
-    index.insert(b);
-    index.insert(c);
-    index.insert(d);
+    index.insert(std::move(a));
+    index.insert(std::move(b));
+    index.insert(std::move(c));
+    index.insert(std::move(d));
 
     cortex::vector::Vector query(1);
     query[0] = 4.0f;
@@ -718,7 +719,7 @@ TEST(HNSWTest, SearchMatchesBruteForce) {
         vector[1] = static_cast<float>(i * 2);
         vector[2] = static_cast<float>(i * 3);
 
-        index.insert(vector);
+        index.insert(std::move(vector));
     }
 
     cortex::vector::Vector query(3);

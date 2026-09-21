@@ -7,7 +7,8 @@
 
 //vector includes
 #include "vector/vector.hpp"
-#include "vector/vector_store.hpp"
+//#include "vector/vector_store.hpp"
+#include "core/vector_store.hpp"
 
 // libraries includes
 #include <cstddef>
@@ -46,7 +47,7 @@ namespace cortex::index {
         const HNSWNode& node(std::size_t id) const;
         const float* vector_data(std::size_t id) const; // access to the stored vector data
 
-        std::size_t insert(const vector::Vector& vector);
+        std::size_t insert(vector::Vector vector);
 		//parameter for search layer -> query, entry points, ef, level
         
         //Connect two nodes in the graph at a specific level
@@ -75,7 +76,7 @@ namespace cortex::index {
 
 
         // adding the vector store 
-        vector::VectorStore vector_store_;
+        core::VectorStore vector_store_;
         std::vector<std::unique_ptr<HNSWNode>> nodes_;
         HNSWLevelGenerator level_generator_; // level genrator
         
@@ -86,6 +87,20 @@ namespace cortex::index {
 
         // node remover
         void disconnectNodes(std::size_t first, std::size_t second, std::size_t level);
+
+        //internal overloader
+        std::size_t greedySearch(
+            const float* query_data,
+            std::size_t entry_point,
+            std::size_t level
+        ) const;
+
+        std::vector<HNSWSearchResult> search_layer(
+            const float* query_data,
+            const std::vector<std::size_t>& entry_points,
+            std::size_t ef,
+            std::size_t level
+        ) const;
     };
     
 }

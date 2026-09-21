@@ -8,7 +8,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
-
+#include <utility>
 using cortex::index::HNSWIndex;
 using cortex::index::HNSWSearchResult;
 using cortex::vector::Vector;
@@ -123,24 +123,6 @@ int main() {
     std::uniform_real_distribution<float>
         distribution(0.0f, 1.0f);
 
-    std::vector<Vector> dataset;
-    dataset.reserve(dataset_size);
-
-    for (std::size_t i = 0;
-        i < dataset_size;
-        ++i) {
-
-        Vector vector(dimension);
-
-        for (std::size_t d = 0;
-            d < dimension;
-            ++d) {
-
-            vector[d] = distribution(generator);
-        }
-
-        dataset.push_back(std::move(vector));
-    }
 
     // --------------------------------------------------
     // Generate queries once
@@ -204,6 +186,26 @@ int main() {
 
     for (const std::size_t M : M_VALUES) {
 
+        std::vector<Vector> dataset;
+        dataset.reserve(dataset_size);
+
+        for (std::size_t i = 0;
+            i < dataset_size;
+            ++i) {
+
+            Vector vector(dimension);
+
+            for (std::size_t d = 0;
+                d < dimension;
+                ++d) {
+
+                vector[d] = distribution(generator);
+            }
+
+            dataset.push_back(std::move(vector));
+        }
+
+
         std::cout
             << "========================================\n";
 
@@ -235,8 +237,8 @@ int main() {
         const auto build_start =
             std::chrono::steady_clock::now();
 
-        for (const auto& vector : dataset) {
-            index.insert(vector);
+        for (auto& vector : dataset) {
+            index.insert(std::move(vector));
         }
 
         const auto build_end =

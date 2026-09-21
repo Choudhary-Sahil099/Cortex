@@ -6,7 +6,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
-
+#include <utility>
 #include <benchmark/benchmark.h>
 
 using cortex::index::HNSWIndex;
@@ -103,7 +103,7 @@ namespace {
                         distribution(generator);
                 }
 
-                index.insert(vector);
+                index.insert(std::move(vector));
             }
 
             // Generate queries.

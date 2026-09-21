@@ -22,6 +22,7 @@ add_library(cortex_core
     #core files
     src/core/buffer.cpp
     src/core/cpu_features.cpp
+    src/core/vector_store.cpp
 
     #vector files
     src/vector/vector.cpp
@@ -150,7 +151,7 @@ enable_testing()
 add_executable(cortex_tests
     #core tests
     tests/core/buffer_test.cpp
-
+    tests/core/vector_store_test.cpp
 
     #vector tests
     tests/vector/distance_test.cpp

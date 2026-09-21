@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <random>
 #include <vector>
-
+#include <iostream>
 #include <gtest/gtest.h>
 
 using cortex::index::HNSWIndex;
@@ -112,7 +112,8 @@ TEST(HNSWRecallTest, RecallAtK) {
         dimension,
         M,
         ef_construction,
-        50
+        50,
+        42
     );
 
     std::mt19937 generator(42);
@@ -136,7 +137,7 @@ TEST(HNSWRecallTest, RecallAtK) {
             vector[d] = distribution(generator);
         }
 
-        index.insert(vector);
+        index.insert(std::move(vector));
     }
 
     std::vector<Vector> queries;
