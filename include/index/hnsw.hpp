@@ -16,6 +16,7 @@
 #include <vector>
 #include <cstdint>
 #include <random>
+#include <unordered_map> //--> for unordered_map
 namespace cortex::index {
 
     class HNSWIndex {
@@ -77,7 +78,10 @@ namespace cortex::index {
 
         // adding the vector store 
         core::VectorStore vector_store_;
-        std::vector<std::unique_ptr<HNSWNode>> nodes_;
+        //std::vector<std::unique_ptr<HNSWNode>> nodes_;  //--> not compatible for the delete operation 
+
+
+        std::unordered_map<std::size_t, std::unique_ptr<HNSWNode>> nodes_; // --> updated node_
         HNSWLevelGenerator level_generator_; // level genrator
         
         //
