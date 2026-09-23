@@ -13,6 +13,24 @@
 using cortex::index::HNSWIndex;
 using cortex::vector::Vector;
 
+
+//helper function for vector creation
+cortex::vector::Vector makeVector(
+    float a,
+    float b,
+    float c,
+    float d
+) {
+    cortex::vector::Vector v(4);
+
+    v[0] = a;
+    v[1] = b;
+    v[2] = c;
+    v[3] = d;
+
+    return v;
+}
+
 // brute force impletation
 namespace {
 
@@ -955,4 +973,230 @@ TEST(HNSWIndexTest, EntryPointHasMaximumLevel) {
     }
 
     EXPECT_TRUE(found_max_level_node);
+}
+
+
+//------------------
+//------remove tests --------------
+// ---------------
+
+TEST(HNSWTest, RemoveExistingNode) {
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    index.insert(
+        makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+    );
+
+    const std::size_t id1 =
+        index.insert(
+            makeVector(0.0f, 1.0f, 0.0f, 0.0f)
+        );
+
+    index.insert(
+        makeVector(0.0f, 0.0f, 1.0f, 0.0f)
+    );
+
+    EXPECT_TRUE(index.remove(id1));
+
+    EXPECT_EQ(index.size(), 2);
+    EXPECT_FALSE(index.empty());
+
+    EXPECT_THROW(
+        index.node(id1),
+        std::out_of_range
+    );
+
+    EXPECT_THROW(
+        index.vector_data(id1),
+        std::out_of_range
+    );
+}
+
+TEST(HNSWTest, RemoveNonexistentNode) {
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    index.insert(
+        makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+    );
+
+    EXPECT_FALSE(index.remove(999));
+
+    EXPECT_EQ(index.size(), 1);
+}
+
+TEST(HNSWTest, RemoveOnlyNode) {
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    EXPECT_TRUE(index.has_entry_point());
+    EXPECT_EQ(index.size(), 1);
+
+    EXPECT_TRUE(index.remove(id));
+
+    EXPECT_TRUE(index.empty());
+    EXPECT_FALSE(index.has_entry_point());
+    EXPECT_EQ(index.size(), 0);
+}
+
+TEST(HNSWTest, RemovedIdIsNotReused) {
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id0 =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    const std::size_t id1 =
+        index.insert(
+            makeVector(0.0f, 1.0f, 0.0f, 0.0f)
+        );
+
+    EXPECT_EQ(id0, 0);
+    EXPECT_EQ(id1, 1);
+
+    EXPECT_TRUE(index.remove(id0));
+
+    const std::size_t id2 =
+        index.insert(
+            makeVector(0.0f, 0.0f, 1.0f, 0.0f)
+        );
+
+    EXPECT_EQ(id2, 2);
+}
+
+TEST(HNSWTest, UpdatePreservesIdAndChangesVector)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    const bool updated =
+        index.update(
+            id,
+            makeVector(0.0f, 1.0f, 0.0f, 0.0f)
+        );
+
+    EXPECT_TRUE(updated);
+
+    EXPECT_EQ(index.size(), 1);
+
+    EXPECT_EQ(index.node(id).id(), id);
+
+    const float* data =
+        index.vector_data(id);
+
+    ASSERT_NE(data, nullptr);
+
+    EXPECT_FLOAT_EQ(data[0], 0.0f);
+    EXPECT_FLOAT_EQ(data[1], 1.0f);
+    EXPECT_FLOAT_EQ(data[2], 0.0f);
+    EXPECT_FLOAT_EQ(data[3], 0.0f);
+}
+
+TEST(HNSWTest, UpdateChangesMetadata)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    cortex::core::metaData metadata{
+        {"source", "email"},
+        {"subject", "Updated subject"}
+    };
+
+    EXPECT_TRUE(
+        index.update(
+            id,
+            makeVector(0.0f, 1.0f, 0.0f, 0.0f),
+            metadata
+        )
+    );
+}
+
+TEST(HNSWTest, UpdateUnknownIdReturnsFalse)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    EXPECT_FALSE(
+        index.update(
+            999,
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        )
+    );
+
+    EXPECT_EQ(index.size(), 0);
+}
+
+TEST(HNSWTest, UpdateRejectsWrongDimension)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    Vector wrong_vector(3);
+
+    wrong_vector[0] = 1.0f;
+    wrong_vector[1] = 2.0f;
+    wrong_vector[2] = 3.0f;
+
+    EXPECT_THROW(
+        index.update(
+            id,
+            std::move(wrong_vector),
+            {}
+        ),
+        std::invalid_argument
+    );
+
+    EXPECT_EQ(index.size(), 1);
+}
+
+TEST(HNSWTest, SearchUsesUpdatedVector)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    const std::size_t id =
+        index.insert(
+            makeVector(1.0f, 0.0f, 0.0f, 0.0f)
+        );
+
+    index.insert(
+        makeVector(0.0f, 1.0f, 0.0f, 0.0f)
+    );
+
+    index.insert(
+        makeVector(0.0f, 0.0f, 1.0f, 0.0f)
+    );
+
+    EXPECT_TRUE(
+        index.update(
+            id,
+            makeVector(0.0f, 0.0f, 1.0f, 0.0f)
+        )
+    );
+
+    const auto results =
+        index.search(
+            makeVector(0.0f, 0.0f, 1.0f, 0.0f),
+            1
+        );
+
+    ASSERT_EQ(results.size(), 1);
+
+    EXPECT_EQ(results[0].id, id);
+
+    EXPECT_FLOAT_EQ(results[0].distance, 0.0f);
 }

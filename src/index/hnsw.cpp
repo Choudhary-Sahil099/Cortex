@@ -9,6 +9,8 @@
 #include <unordered_set>
 #include <utility>
 
+
+// for the persistence state saftey the design includes states are -> next_id ,, entry->point ,, max_level 
 namespace cortex::index {
 
     HNSWIndex::HNSWIndex(
@@ -76,9 +78,26 @@ namespace cortex::index {
         return nodes_.empty();
     }
 
+
+    // states persistence
+
+    //highest layer
     std::size_t HNSWIndex::max_level() const {
         return max_level_;
     }
+
+    // where the search starts
+    std::size_t HNSWIndex::entry_point() const
+    {
+        return entry_point_;
+    }
+
+    // prevents id reuse 
+    std::size_t HNSWIndex::next_id() const
+    {
+        return vector_store_.next_id();
+    }
+
 
     bool HNSWIndex::has_entry_point() const {
         return !nodes_.empty();
@@ -108,13 +127,49 @@ namespace cortex::index {
         }
 
         const std::size_t id =
-            vector_store_.add(std::move(vector));
+            vector_store_.add(
+                std::move(vector)
+            );
 
         const float* inserted_data =
             vector_store_.vector_data(id);
 
         const std::size_t level =
             level_generator_.generate();
+
+        insertNode(
+            id,
+            inserted_data,
+            level
+        );
+
+        return id;
+    }
+
+
+    //insertNode 
+    void HNSWIndex::insertNode(
+        std::size_t id,
+        const float* vector_data,
+        std::size_t level
+    ) {
+        if (vector_data == nullptr) {
+            throw std::invalid_argument(
+                "Vector data must not be null"
+            );
+        }
+
+        if (!vector_store_.contains(id)) {
+            throw std::out_of_range(
+                "VectorStore ID does not exist"
+            );
+        }
+
+        if (nodes_.contains(id)) {
+            throw std::invalid_argument(
+                "HNSW node ID already exists"
+            );
+        }
 
         auto node =
             std::make_unique<HNSWNode>(
@@ -130,17 +185,12 @@ namespace cortex::index {
         if (nodes_.size() == 1) {
             entry_point_ = id;
             max_level_ = level;
-
-            return id;
+            return;
         }
 
         std::size_t current_entry =
             entry_point_;
 
-        /*
-            Descend through levels above the
-            level of the new node using greedy search.
-        */
         for (
             std::size_t current_level = max_level_;
             current_level > level;
@@ -148,7 +198,7 @@ namespace cortex::index {
             ) {
             current_entry =
                 greedySearch(
-                    inserted_data,
+                    vector_data,
                     current_entry,
                     current_level
                 );
@@ -164,7 +214,7 @@ namespace cortex::index {
             ) {
             const auto candidates =
                 search_layer(
-                    inserted_data,
+                    vector_data,
                     { current_entry },
                     ef_construction_,
                     current_level
@@ -190,8 +240,184 @@ namespace cortex::index {
             entry_point_ = id;
             max_level_ = level;
         }
+    }
 
-        return id;
+    // remove implementation
+    bool HNSWIndex::remove(std::size_t id) {
+        const auto node_it = nodes_.find(id);
+
+        if (node_it == nodes_.end()) {
+            return false;
+        }
+
+        HNSWNode& node =
+            *node_it->second;
+
+        const std::size_t node_level =
+            node.level();
+
+        std::vector<std::pair<std::size_t, std::size_t>>
+            edges_to_remove;
+
+        for (
+            std::size_t level = 0;
+            level <= node_level;
+            ++level
+            ) {
+            const auto& neighbours =
+                node.neighbors(level);
+
+            for (
+                const std::size_t neighbour_id :
+            neighbours
+                ) {
+                edges_to_remove.emplace_back(
+                    neighbour_id,
+                    level
+                );
+            }
+        }
+
+        for (
+            const auto& [neighbour_id, level] :
+            edges_to_remove
+            ) {
+            if (nodes_.contains(neighbour_id)) {
+                disconnectNodes(
+                    id,
+                    neighbour_id,
+                    level
+                );
+            }
+        }
+        nodes_.erase(node_it);
+
+        if (id == entry_point_) {
+            if (nodes_.empty()) {
+                entry_point_ =
+                    std::numeric_limits<std::size_t>::max();
+
+                max_level_ = 0;
+            }
+            else {
+                std::size_t new_entry_point =
+                    std::numeric_limits<std::size_t>::max();
+
+                std::size_t new_max_level = 0;
+
+                for (const auto& [node_id, node_ptr] : nodes_) {
+                    const std::size_t level =
+                        node_ptr->level();
+
+                    if (
+                        new_entry_point ==
+                        std::numeric_limits<std::size_t>::max()
+                        ||
+                        level > new_max_level
+                        ) {
+                        new_entry_point = node_id;
+                        new_max_level = level;
+                    }
+                }
+
+                entry_point_ = new_entry_point;
+                max_level_ = new_max_level;
+            }
+        }
+        const bool removed =
+            vector_store_.remove(id);
+
+        if (!removed) {
+            throw std::logic_error(
+                "HNSW and VectorStore are inconsistent"
+            );
+        }
+
+        return true;
+    }
+
+    //updated implementation
+    bool HNSWIndex::update(
+        std::size_t id,
+        vector::Vector vector,
+        core::metaData metadata
+    ) {
+        if (!nodes_.contains(id)) {
+            return false;
+        }
+
+        if (vector.dimension() != dimension_) {
+            throw std::invalid_argument(
+                "Vector dimension does not match HNSW index dimension"
+            );
+        }
+
+        HNSWNode& old_node =
+            *nodes_.at(id);
+
+        const std::size_t old_level =
+            old_node.level();
+
+        // Remove the old graph.
+        std::vector<std::pair<std::size_t, std::size_t>>
+            edges_to_remove;
+
+        for (
+            std::size_t level = 0;
+            level <= old_level;
+            ++level
+            ) {
+            const auto& neighbours =
+                old_node.neighbors(level);
+
+            for (
+                const std::size_t neighbour_id :
+            neighbours
+                ) {
+                edges_to_remove.emplace_back(
+                    neighbour_id,
+                    level
+                );
+            }
+        }
+
+        for (
+            const auto& [neighbour_id, level] :
+            edges_to_remove
+            ) {
+            if (nodes_.contains(neighbour_id)) {
+                disconnectNodes(
+                    id,
+                    neighbour_id,
+                    level
+                );
+            }
+        }
+
+        nodes_.erase(id);
+        const bool updated =
+            vector_store_.update(
+                id,
+                std::move(vector),
+                std::move(metadata)
+            );
+
+        if (!updated) {
+            throw std::logic_error(
+                "HNSW and VectorStore are inconsistent"
+            );
+        }
+
+        const float* updated_data =
+            vector_store_.vector_data(id);
+
+        insertNode(
+            id,
+            updated_data,
+            old_level
+        );
+
+        return true;
     }
 
     void HNSWIndex::connect_nodes(
@@ -854,4 +1080,16 @@ namespace cortex::index {
         );
     }
 
+     // read the existing nodes 
+    const std::unordered_map<std::size_t,std::unique_ptr<HNSWNode>>& HNSWIndex::nodes() const
+    {
+        return nodes_;
+    }
+
+
+    //vector store 
+    const core::VectorStore& HNSWIndex::vector_store() const
+    {
+        return vector_store_;
+    }
 }

@@ -40,8 +40,12 @@ namespace cortex::index {
         std::size_t size() const;
 
         bool empty() const;
+        
 
+        //persistence states 
         std::size_t max_level() const;
+        std::size_t entry_point() const;
+        std::size_t next_id() const;
 
         bool has_entry_point() const;
 
@@ -49,6 +53,12 @@ namespace cortex::index {
         const float* vector_data(std::size_t id) const; // access to the stored vector data
 
         std::size_t insert(vector::Vector vector);
+        bool remove(std::size_t id); //remove a node
+        bool update(
+            std::size_t id,
+            vector::Vector vector,
+            core::metaData metadata = {}
+        ); //--> update a node
 		//parameter for search layer -> query, entry points, ef, level
         
         //Connect two nodes in the graph at a specific level
@@ -65,7 +75,9 @@ namespace cortex::index {
         //search
         std::vector<HNSWSearchResult> search(const vector::Vector& query,std::size_t k ) const;
         std::vector<HNSWSearchResult> search(const vector::Vector& query, std::size_t k, std::size_t ef_search) const;
-
+        //nodes read only
+        const std::unordered_map< std::size_t, std::unique_ptr<HNSWNode>>& nodes() const;
+        const core::VectorStore& vector_store() const; // keep it read only else the peristance can change the index
     private:
         
         std::size_t dimension_;
@@ -92,6 +104,10 @@ namespace cortex::index {
         // node remover
         void disconnectNodes(std::size_t first, std::size_t second, std::size_t level);
 
+        void insertNode(std::size_t id,
+            const float* vector_data,
+            std::size_t level
+        );
         //internal overloader
         std::size_t greedySearch(
             const float* query_data,
@@ -105,6 +121,8 @@ namespace cortex::index {
             std::size_t ef,
             std::size_t level
         ) const;
+
+
     };
     
 }

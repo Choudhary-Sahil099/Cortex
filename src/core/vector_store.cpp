@@ -158,4 +158,54 @@ namespace cortex::core {
 
         return records_[it->second].vector.data();
     }
+
+    // records implementation
+    const std::vector<VectorRecord>& VectorStore::records() const
+    {
+        return records_;
+    }
+    VectorId VectorStore::next_id() const
+    {
+        return next_id_;
+    }
+
+    // restore implementation
+
+    bool VectorStore::restore(
+        VectorId id,
+        vector::Vector vector,
+        metaData metadata
+    )
+    {
+        if (vector.dimension() != dimension_) {
+            throw std::invalid_argument(
+                "Vector dimension does not match VectorStore dimension"
+            );
+        }
+
+        if (id_to_position_.contains(id)) {
+            throw std::invalid_argument(
+                "VectorStore VectorId already exists"
+            );
+        }
+
+        const std::size_t position =
+            records_.size();
+
+        records_.push_back(
+            VectorRecord{
+                id,
+                std::move(vector),
+                std::move(metadata)
+            }
+        );
+
+        id_to_position_[id] = position;
+
+        if (id >= next_id_) {
+            next_id_ = id + 1;
+        }
+
+        return true;
+    }
 }

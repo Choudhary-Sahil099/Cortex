@@ -18,7 +18,10 @@ namespace cortex::core {
         std::size_t size() const;
 
         bool empty() const;
+
+        // dont confuse add and restore
         VectorId add(vector::Vector vector, metaData metadata = {}); // add func
+
         const VectorRecord& get(VectorId id) const; // get func
         bool remove(VectorId id); // remove func --> only the id required
            
@@ -29,6 +32,12 @@ namespace cortex::core {
 
         //Hide layer
         const float* vector_data(VectorId id) const;
+        //record APi
+        const std::vector<VectorRecord>& records() const;
+        VectorId next_id() const; //  store the nxt_id
+
+        // restore -> insteadf of creating a new id we use the existiing / orignal one that is given by the persistence layer
+        bool restore( VectorId id, vector::Vector vector, metaData metadata);
     private:
         std::size_t dimension_;
         VectorId next_id_;

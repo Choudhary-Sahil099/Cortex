@@ -43,6 +43,10 @@ add_library(cortex_core
     src/index/hnsw.cpp
     src/index/hnsw_level_generator.cpp
     src/index/neighbour_selection.cpp
+
+
+    #persistence
+    src/persistence/serializer.cpp
 )
 
 target_include_directories(cortex_core
