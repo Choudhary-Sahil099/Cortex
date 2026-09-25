@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <vector>
 
 namespace cortex::persistence {
 
@@ -389,6 +390,265 @@ namespace cortex::persistence {
             static_cast<std::size_t>(M),
             static_cast<std::size_t>(ef_construction)
         );
+        std::uint64_t record_count = 0;
+
+        file.read(
+            reinterpret_cast<char*>(&record_count),
+            sizeof(record_count)
+        );
+        if (!file) {
+            throw std::runtime_error(
+                "Failed to read Cortex record count"
+            );
+        }
+        for (std::uint64_t i = 0; i < record_count; ++i) {
+
+            std::uint64_t id = 0;
+            std::uint64_t record_dimension = 0;
+
+            file.read(
+                reinterpret_cast<char*>(&id),
+                sizeof(id)
+            );
+
+            file.read(
+                reinterpret_cast<char*>(&record_dimension),
+                sizeof(record_dimension)
+            );
+
+            if (!file) {
+                throw std::runtime_error(
+                    "Failed to read Cortex vector record"
+                );
+            }
+
+            if (record_dimension != dimension) {
+                throw std::runtime_error(
+                    "Vector dimension does not match Cortex index dimension"
+                );
+            }
+
+            cortex::vector::Vector vector(
+                static_cast<std::size_t>(record_dimension)
+            );
+
+            file.read(
+                reinterpret_cast<char*>(vector.data()),
+                static_cast<std::streamsize>(
+                    record_dimension * sizeof(float)
+                    )
+            );
+
+            if (!file) {
+                throw std::runtime_error(
+                    "Failed to read Cortex vector data"
+                );
+            }
+            std::uint64_t metadata_count = 0;
+
+            file.read(
+                reinterpret_cast<char*>(&metadata_count),
+                sizeof(metadata_count)
+            );
+
+            if (!file) {
+                throw std::runtime_error(
+                    "Failed to read Cortex metadata count"
+                );
+            }
+
+            cortex::core::metaData metadata;
+
+            for (std::uint64_t j = 0; j < metadata_count; ++j) {
+                std::uint64_t key_size = 0;
+                std::uint64_t value_size = 0;
+
+                file.read(
+                    reinterpret_cast<char*>(&key_size),
+                    sizeof(key_size)
+                );
+
+                if (!file) {
+                    throw std::runtime_error(
+                        "Failed to read Cortex metadata key size"
+                    );
+                }
+
+                std::string key(
+                    static_cast<std::size_t>(key_size),
+                    '\0'
+                );
+
+                file.read(
+                    key.data(),
+                    static_cast<std::streamsize>(key_size)
+                );
+
+                if (!file) {
+                    throw std::runtime_error(
+                        "Failed to read Cortex metadata key"
+                    );
+                }
+
+                file.read(
+                    reinterpret_cast<char*>(&value_size),
+                    sizeof(value_size)
+                );
+
+                if (!file) {
+                    throw std::runtime_error(
+                        "Failed to read Cortex metadata value size"
+                    );
+                }
+
+                std::string value(
+                    static_cast<std::size_t>(value_size),
+                    '\0'
+                );
+
+                file.read(
+                    value.data(),
+                    static_cast<std::streamsize>(value_size)
+                );
+
+                if (!file) {
+                    throw std::runtime_error(
+                        "Failed to read Cortex metadata value"
+                    );
+                }
+
+                metadata.emplace(
+                    std::move(key),
+                    std::move(value)
+                );
+            }
+            index.restore_vector(
+                static_cast<cortex::core::VectorId>(id),
+                std::move(vector),
+                std::move(metadata)
+            );
+        }
+
+        std::uint64_t node_count = 0;
+
+        file.read(
+            reinterpret_cast<char*>(&node_count),
+            sizeof(node_count)
+        );
+        if (!file) {
+            throw std::runtime_error(
+                "Failed to read Cortex record count"
+            );
+        }
+        // updated version
+        struct PendingEdge {
+            std::size_t first;
+            std::size_t second;
+            std::size_t level;
+        };
+
+        std::vector<PendingEdge> pending_edges;
+
+        for (std::uint64_t i = 0; i < node_count; ++i) {
+
+            std::uint64_t node_id = 0;
+            std::uint64_t level = 0;
+
+            file.read(
+                reinterpret_cast<char*>(&node_id),
+                sizeof(node_id)
+            );
+
+            file.read(
+                reinterpret_cast<char*>(&level),
+                sizeof(level)
+            );
+
+            if (!file) {
+                throw std::runtime_error(
+                    "Failed to read Cortex HNSW node"
+                );
+            }
+
+            if (level > max_level) {
+                throw std::runtime_error(
+                    "HNSW node level exceeds persisted max level"
+                );
+            }
+
+            index.restore_node(
+                static_cast<std::size_t>(node_id),
+                static_cast<std::size_t>(level)
+            );
+
+            for (
+                std::size_t current_level = 0;
+                current_level <= static_cast<std::size_t>(level);
+                ++current_level
+                ) {
+                std::uint64_t neighbour_count = 0;
+
+                file.read(
+                    reinterpret_cast<char*>(&neighbour_count),
+                    sizeof(neighbour_count)
+                );
+
+                if (!file) {
+                    throw std::runtime_error(
+                        "Failed to read Cortex neighbour count"
+                    );
+                }
+
+                for (
+                    std::uint64_t j = 0;
+                    j < neighbour_count;
+                    ++j
+                    ) {
+                    std::uint64_t neighbour_id = 0;
+
+                    file.read(
+                        reinterpret_cast<char*>(&neighbour_id),
+                        sizeof(neighbour_id)
+                    );
+
+                    if (!file) {
+                        throw std::runtime_error(
+                            "Failed to read Cortex neighbour ID"
+                        );
+                    }
+
+                    pending_edges.push_back({
+                        static_cast<std::size_t>(node_id),
+                        static_cast<std::size_t>(neighbour_id),
+                        current_level
+                        });
+                }
+            }
+        }
+
+        for (const auto& edge : pending_edges) {
+            index.restore_edge(
+                edge.first,
+                edge.second,
+                edge.level
+            );
+        }
+
+        index.restore_next_id(
+            static_cast<cortex::core::VectorId>(next_id)
+        );
+
+        index.restore_state(
+            static_cast<std::size_t>(entry_point),
+            static_cast<std::size_t>(max_level)
+        );
+
+        if (!file) {
+            throw std::runtime_error(
+                "Failed to read Cortex index state"
+            );
+        }
+        return index;
     }
 
 }

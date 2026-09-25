@@ -1092,4 +1092,159 @@ namespace cortex::index {
     {
         return vector_store_;
     }
+
+
+
+
+    // restore the vector
+    bool HNSWIndex::restore_vector(
+        core::VectorId id,
+        vector::Vector vector,
+        core::metaData metadata
+    ) {
+        return vector_store_.restore(
+            id,
+            std::move(vector),
+            std::move(metadata)
+        );
+    }
+    // restore the nodes
+    bool HNSWIndex::restore_node(
+        std::size_t id,
+        std::size_t level
+    ) {
+        if (!vector_store_.contains(id)) {
+            throw std::out_of_range(
+                "Cannot restore HNSW node without vector"
+            );
+        }
+
+        if (nodes_.contains(id)) {
+            throw std::invalid_argument(
+                "HNSW node ID already exists"
+            );
+        }
+
+        auto node =
+            std::make_unique<HNSWNode>(
+                id,
+                level
+            );
+
+        nodes_.emplace(
+            id,
+            std::move(node)
+        );
+
+        return true;
+    }
+
+    bool HNSWIndex::restore_edge(
+        std::size_t first,
+        std::size_t second,
+        std::size_t level
+    ) {
+        if (!nodes_.contains(first)) {
+            throw std::out_of_range(
+                "First HNSW node does not exist"
+            );
+        }
+
+        if (!nodes_.contains(second)) {
+            throw std::out_of_range(
+                "Second HNSW node does not exist"
+            );
+        }
+
+        if (first == second) {
+            throw std::invalid_argument(
+                "HNSW node cannot connect to itself"
+            );
+        }
+
+        HNSWNode& first_node =
+            *nodes_.at(first);
+
+        HNSWNode& second_node =
+            *nodes_.at(second);
+
+        if (
+            level > first_node.level() ||
+            level > second_node.level()
+            ) {
+            throw std::invalid_argument(
+                "Level exceeds node level"
+            );
+        }
+
+        auto& first_neighbours =
+            first_node.neighbors(level);
+
+        if (
+            std::find(
+                first_neighbours.begin(),
+                first_neighbours.end(),
+                second
+            ) == first_neighbours.end()
+            ) {
+            first_neighbours.push_back(second);
+        }
+
+        auto& second_neighbours =
+            second_node.neighbors(level);
+
+        if (
+            std::find(
+                second_neighbours.begin(),
+                second_neighbours.end(),
+                first
+            ) == second_neighbours.end()
+            ) {
+            second_neighbours.push_back(first);
+        }
+
+        return true;
+    }
+
+    // restoration api
+    void HNSWIndex::restore_state(std::size_t entry_point,std::size_t max_level) {
+        if (nodes_.empty()) {
+            if (
+                entry_point !=
+                std::numeric_limits<std::size_t>::max()
+            ) {
+                throw std::invalid_argument(
+                    "Empty HNSW index cannot have an entry point"
+                );
+            }
+
+            if (max_level != 0) {
+                throw std::invalid_argument(
+                    "Empty HNSW index must have max level zero"
+                );
+            }
+        }
+        else {
+            if (!nodes_.contains(entry_point)) {
+                throw std::out_of_range(
+                    "HNSW entry point does not exist"
+                );
+            }
+
+            if (max_level > nodes_.at(entry_point)->level()) {
+                throw std::invalid_argument(
+                    "Persisted max level exceeds entry point level"
+                );
+            }
+        }
+
+        entry_point_ = entry_point;
+        max_level_ = max_level;
+    }
+
+    void HNSWIndex::restore_next_id(
+        core::VectorId next_id
+    ) {
+        vector_store_.restore_next_id(next_id);
+    }
 }

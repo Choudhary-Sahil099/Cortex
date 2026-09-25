@@ -1,11 +1,16 @@
 #include "core/vector_store.hpp"
+#include "persistence/serializer.hpp"
+
+
+#include <cstdio>
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <string>
 #include <cstdint>
 #include <stdexcept>
-
+#include <utility>
+#include <fstream> // for files 
 namespace {
 
     cortex::vector::Vector make_vector(
@@ -322,3 +327,5 @@ TEST(VectorStoreTest, VectorDataRejectsUnknownId)
         std::out_of_range
     );
 }
+
+

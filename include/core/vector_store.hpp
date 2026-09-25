@@ -38,6 +38,7 @@ namespace cortex::core {
 
         // restore -> insteadf of creating a new id we use the existiing / orignal one that is given by the persistence layer
         bool restore( VectorId id, vector::Vector vector, metaData metadata);
+        void restore_next_id(VectorId next_id); 
     private:
         std::size_t dimension_;
         VectorId next_id_;

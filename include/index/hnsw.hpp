@@ -78,6 +78,13 @@ namespace cortex::index {
         //nodes read only
         const std::unordered_map< std::size_t, std::unique_ptr<HNSWNode>>& nodes() const;
         const core::VectorStore& vector_store() const; // keep it read only else the peristance can change the index
+        bool restore_vector(core::VectorId id, vector::Vector vector,core::metaData metadata = {}); //reconstuct the vector
+
+        bool restore_node(std::size_t id,std::size_t level); // restore the node to create the HNSW nodes
+        bool restore_edge(std::size_t first, std::size_t second, std::size_t level); // restore edges -> dont use again restore Connected nodes i have used the existing connect node func
+
+        void restore_state(std::size_t entry_point,std::size_t max_level);
+        void restore_next_id(core::VectorId next_id);
     private:
         
         std::size_t dimension_;

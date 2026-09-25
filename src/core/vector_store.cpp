@@ -208,4 +208,15 @@ namespace cortex::core {
 
         return true;
     }
+
+    void VectorStore::restore_next_id(VectorId next_id)
+    {
+        if (next_id < next_id_) {
+            throw std::invalid_argument(
+                "Persisted next_id is smaller than restored state"
+            );
+        }
+
+        next_id_ = next_id;
+    }
 }

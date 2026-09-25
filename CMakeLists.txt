@@ -170,6 +170,10 @@ add_executable(cortex_tests
     tests/index/hnsw_test.cpp
     tests/index/neighbour_selection_test.cpp
     tests/index/hnsw_recall_test.cpp
+
+
+    #persistence
+    tests/persistence/serializer_test.cpp
 )
 
 target_link_libraries(cortex_tests
