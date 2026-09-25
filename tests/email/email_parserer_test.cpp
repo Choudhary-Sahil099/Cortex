@@ -1,0 +1,60 @@
+#include "email/email_parserer.hpp"
+#include <gtest/gtest.h>
+
+TEST(EmailParserTest, ParsesBasicEmail) {
+
+    //spelling mistakes can cause error
+    const std::string raw_email =
+        "ID: email_001\n"
+        "From: sahil@example.com\n"
+        "To: sujal@example.com\n"
+        "Subject: Interview\n"
+        "Date: 2026-09-25T10:00:00\n"
+        "Thread-ID: thread_123\n"
+        "\n"
+        "Your interview is scheduled for Monday.\n";
+
+    cortex::email::EmailParser parser;
+
+    const auto email = parser.parse(raw_email);
+
+    EXPECT_EQ(email.sender, "sahil@example.com");
+
+    ASSERT_EQ(email.recipients.size(), 1);
+    EXPECT_EQ(
+        email.recipients[0],
+        "sujal@example.com"
+    );
+
+    EXPECT_EQ(email.subject, "Interview");
+
+    EXPECT_EQ(
+        email.timestamp,
+        "2026-09-25T10:00:00"
+    );
+
+    EXPECT_EQ(
+        email.thread_id,
+        "thread_123"
+    );
+
+    EXPECT_EQ(
+        email.body,
+        "Your interview is scheduled for Monday.\n" 
+    );
+}
+
+TEST(EmailParserTest, RejectsInvalidEmail)
+{
+    const std::string raw_email =
+        "From: sahil@example.com\n"
+        "Subject: Invalid content \n"
+        "\n";
+
+    cortex::email::EmailParser parser;
+
+    EXPECT_THROW(
+        parser.parse(raw_email),
+        std::runtime_error
+    );
+}

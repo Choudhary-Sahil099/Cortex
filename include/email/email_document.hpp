@@ -8,7 +8,7 @@ namespace cortex::email
 	// email struct define
 	struct EmailDocument {
 		std::string id;  // to identify a specific email
-		std::string thread_id; // emails belong to the same thread
+		std::string thread_id; // emails belong to the same thread / conversation
 
 
 		std::string sender;
@@ -20,6 +20,8 @@ namespace cortex::email
 		std::string timestamp;
 
 		std::vector<std::string> attachments; // the files that are send in the messages
+
+		bool valid() const; // imp. for verfication of a valid email 
 
 	};
 }

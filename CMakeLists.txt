@@ -47,6 +47,11 @@ add_library(cortex_core
 
     #persistence
     src/persistence/serializer.cpp
+
+
+    #email ingestion
+    src/email/email_document.cpp
+    src/email/email_parserer.cpp
 )
 
 target_include_directories(cortex_core
@@ -174,6 +179,11 @@ add_executable(cortex_tests
 
     #persistence
     tests/persistence/serializer_test.cpp
+
+
+    #email ingestion
+    tests/email/email_document_test.cpp
+    tests/email/email_parserer_test.cpp
 )
 
 target_link_libraries(cortex_tests
