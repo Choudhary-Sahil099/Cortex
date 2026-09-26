@@ -4,6 +4,43 @@
 #include <stdexcept>
 
 namespace cortex::email {
+	namespace {
+
+
+		// hepler trim function to overcome the problewm of the white spaces
+		std::string trim(const std::string& value)
+		{
+			const auto first = value.find_first_not_of(" \t");
+
+			if (first == std::string::npos) {
+				return "";
+			}
+
+			const auto last = value.find_last_not_of(" \t");
+
+			return value.substr(first,last - first + 1);
+		}
+		std::vector<std::string> parseRecipients(
+			const std::string& value
+		)
+		{
+			std::vector<std::string> recipients;
+
+			std::stringstream stream(value);
+			std::string recipient;
+
+			while (std::getline(stream, recipient, ',')) {
+
+				recipient = trim(recipient);
+
+				if (!recipient.empty()) {
+					recipients.push_back(recipient);
+				}
+			}
+
+			return recipients;
+		}
+	}
 	EmailDocument EmailParser::parse(const std::string& raw_email) const {
 
 		EmailDocument document;
@@ -25,13 +62,11 @@ namespace cortex::email {
 				const std::string key = line.substr(0, separator);
 				std::string value = line.substr(separator + 1);
 
-				if (!value.empty() && value.front() == ' ') { 
-					value.erase(0, 1);
-				}
+				value = trim(value); // used trim instead of the harcoded method
 
 				if (key == "ID") document.id = value;
 				else if (key == "From") document.sender = value;
-				else if (key == "To") document.recipients.push_back(value);
+				else if (key == "To") document.recipients = parseRecipients(value);
 				else if (key == "Subject") document.subject = value;
 				else if (key == "Date") document.timestamp = value;
 				else if (key == "Thread-ID") document.thread_id = value;
@@ -47,5 +82,5 @@ namespace cortex::email {
 		}
 		return document;
 	}
-	
+
 }

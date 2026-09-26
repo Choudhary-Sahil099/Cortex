@@ -47,7 +47,7 @@ TEST(EmailParserTest, ParsesBasicEmail) {
 TEST(EmailParserTest, RejectsInvalidEmail)
 {
     const std::string raw_email =
-        "From: sahil@example.com\n"
+        "From:sahil@example.com\n"
         "Subject: Invalid content \n"
         "\n";
 
@@ -57,4 +57,51 @@ TEST(EmailParserTest, RejectsInvalidEmail)
         parser.parse(raw_email),
         std::runtime_error
     );
+}
+TEST(EmailParserTest, ParsesMultipleRecipients)
+{
+    const std::string raw_email =
+        "ID: email_002\n"
+        "From: sahil@example.com\n"
+        "To:                   sujal@example.com, shivanshu@example.com\n"
+        "Subject: Meeting\n"
+        "Date: 2026-09-25T10:00:00\n"
+        "Thread-ID: thread_456\n"
+        "\n"
+        "Meeting is scheduled for tomorrow.\n";
+
+    cortex::email::EmailParser parser;
+
+    const auto email = parser.parse(raw_email);
+
+    ASSERT_EQ(email.recipients.size(), 2);
+
+    EXPECT_EQ(
+        email.recipients[0],
+        "sujal@example.com"
+    );
+
+    EXPECT_EQ(
+        email.recipients[1],
+        "shivanshu@example.com"
+    );
+}
+
+
+TEST(EmailParserTest, ParsesWhiteSpaces) {
+    const std::string raw_email =
+        "ID: email_002\n"
+        "From:         sahil@example.com\n"
+        "To:     sujal@example.com, shivanshu@example.com\n"
+        "Subject: Meeting\n"
+        "Date: 2026-09-25T10:00:00\n"
+        "Thread-ID: thread_456\n"
+        "\n"
+        "Meeting is scheduled for tomorrow.\n";
+
+    cortex::email::EmailParser parser;
+
+    const auto email = parser.parse(raw_email);
+
+    EXPECT_EQ(email.sender, "sahil@example.com");
 }
