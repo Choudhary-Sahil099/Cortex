@@ -105,3 +105,59 @@ TEST(EmailParserTest, ParsesWhiteSpaces) {
 
     EXPECT_EQ(email.sender, "sahil@example.com");
 }
+
+TEST(EmailParserTest, ParsesCRLFEmail)
+{
+    const std::string raw_email =
+        "ID: email_003\r\n"
+        "From:    sahil@example.com\r\n"
+        "To: sujal@example.com,     shivanshu@example.com\r\n"
+        "Subject: Interview\r\n"
+        "Date: 2026-09-25T10:00:00\r\n"
+        "Thread-ID: thread_789\r\n"
+        "\r\n"
+        "Your interview is scheduled for Monday.\r\n";
+
+    cortex::email::EmailParser parser;
+
+    const auto email = parser.parse(raw_email);
+
+    EXPECT_EQ(email.id, "email_003");
+    EXPECT_EQ(email.sender, "sahil@example.com");
+
+    ASSERT_EQ(email.recipients.size(), 2);
+    EXPECT_EQ(email.recipients[0], "sujal@example.com");
+    EXPECT_EQ(email.recipients[1], "shivanshu@example.com");
+
+    EXPECT_EQ(email.subject, "Interview");
+    EXPECT_EQ(email.timestamp, "2026-09-25T10:00:00");
+    EXPECT_EQ(email.thread_id, "thread_789");
+
+    EXPECT_EQ(
+        email.body,
+        "Your interview is scheduled for Monday.\n"
+    );
+}
+
+TEST(EmailParserTest, ParsesFoldedSubject)
+{
+    const std::string raw_email =
+        "ID: email_004\r\n"
+        "From: sahil@example.com\r\n"
+        "To: sujal@example.com\r\n"
+        "Subject: Interview discussion\r\n"
+        " tomorrow at 10 AM\r\n"
+        "Date: 2026-09-25T10:00:00\r\n"
+        "Thread-ID: thread_004\r\n"
+        "\r\n"
+        "The interview is scheduled.\r\n";
+
+    cortex::email::EmailParser parser;
+
+    const auto email = parser.parse(raw_email);
+
+    EXPECT_EQ(
+        email.subject,
+        "Interview discussion tomorrow at 10 AM"
+    );
+}

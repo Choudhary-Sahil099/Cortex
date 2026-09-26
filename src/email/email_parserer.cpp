@@ -5,8 +5,6 @@
 
 namespace cortex::email {
 	namespace {
-
-
 		// hepler trim function to overcome the problewm of the white spaces
 		std::string trim(const std::string& value)
 		{
@@ -49,17 +47,35 @@ namespace cortex::email {
 		std::string line;
 
 		bool in_body = false;
+		std::string current_key; // for the folder struct header
 
 		while (std::getline(stream, line)) {
+
+			if (!line.empty() && line.back() == '\r') { // to solve the problem of the line ending with the /r
+				line.pop_back();
+			}
 			if (!in_body) {
 				if (line.empty() || line == "\r") {
 					in_body = true;
 					continue;
 				}
-				const auto separator = line.find(":"); // find the separator
+				if (!line.empty() && (line.front() == ' ' || line.front() == '\t')) { // to check for the white spaces in the folder format
+					if (!current_key.empty()) {
+						const std::string continuation = trim(line);
+						if (current_key == "Subject") {
+							document.subject += " " + continuation;
+						}
+						else if (current_key == "Thread-ID") {
+							document.thread_id += continuation;
+						}
+					}
+					continue;
+				}
 
+				const auto separator = line.find(":"); // find the separator
 				if (separator == std::string::npos) continue;
 				const std::string key = line.substr(0, separator);
+				current_key = key;
 				std::string value = line.substr(separator + 1);
 
 				value = trim(value); // used trim instead of the harcoded method
