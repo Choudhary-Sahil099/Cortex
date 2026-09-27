@@ -53,6 +53,8 @@ add_library(cortex_core
     src/email/email_document.cpp
     src/email/email_parserer.cpp
     src/email/email_cleaner.cpp
+    src/email/email_chunker.cpp
+    
 )
 
 target_include_directories(cortex_core
@@ -186,6 +188,7 @@ add_executable(cortex_tests
     tests/email/email_document_test.cpp
     tests/email/email_parserer_test.cpp
     tests/email/email_cleaner_test.cpp
+    tests/email/email_chunker_test.cpp
 )
 
 target_link_libraries(cortex_tests

@@ -43,4 +43,3 @@ namespace cortex::email {
         return cleaned;
     }
 }
-
