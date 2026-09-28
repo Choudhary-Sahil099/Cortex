@@ -13,9 +13,30 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ============================================================
+#==============
+# ONNX 
+#===========
+set(ONNXRUNTIME_ROOT
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/onnxruntime
+)
+
+set(ONNXRUNTIME_INCLUDE_DIR
+    ${ONNXRUNTIME_ROOT}/include
+)
+
+set(ONNXRUNTIME_LIBRARY
+    ${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib
+)
+
+set(ONNXRUNTIME_DLL
+    ${ONNXRUNTIME_ROOT}/lib/onnxruntime.dll
+)
+
+
+
+# =====================
 # Cortex Core Library
-# ============================================================
+# =======================
 
 add_library(cortex_core
 
@@ -54,14 +75,24 @@ add_library(cortex_core
     src/email/email_parserer.cpp
     src/email/email_cleaner.cpp
     src/email/email_chunker.cpp
+
+    #embedding
+    src/embedding/wordpiece_tokenizer.cpp
     
 )
 
 target_include_directories(cortex_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${ONNXRUNTIME_INCLUDE_DIR}
 )
 
+#linking the libs
+
+target_link_libraries(cortex_core
+    PUBLIC
+        ${ONNXRUNTIME_LIBRARY}
+)
 # ============================================================
 # CPU / SIMD Configuration
 # ============================================================
@@ -193,6 +224,7 @@ add_executable(cortex_tests
 
     #embedding
     tests/embedding/embedder_test.cpp
+    tests/embedding/wordpiece_tokenizer_test.cpp
 )
 
 target_link_libraries(cortex_tests
@@ -235,7 +267,49 @@ target_link_libraries(hnsw_recall_latency
     cortex_core
 )
 
+# ---- bge
 
+add_executable(bge_onnx_experiment
+
+    experiments/embeddings/bgeOnnx.cpp
+
+)
+
+target_link_libraries(bge_onnx_experiment
+
+    PRIVATE
+
+        cortex_core
+
+)
+
+add_custom_command(
+    TARGET bge_onnx_experiment
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${ONNXRUNTIME_DLL}
+        $<TARGET_FILE_DIR:bge_onnx_experiment>
+)
+
+# ===============
+# ONNX Runtime DLL
+# ==================
+
+add_custom_command(
+    TARGET cortex
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${ONNXRUNTIME_DLL}
+        $<TARGET_FILE_DIR:cortex>
+)
+
+add_custom_command(
+    TARGET cortex_tests
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${ONNXRUNTIME_DLL}
+        $<TARGET_FILE_DIR:cortex_tests>
+)
 # ============================================================
 # Build Information
 # ============================================================
