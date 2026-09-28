@@ -101,3 +101,10 @@ TEST(EmailChunkerTest, LargeEmailProducesMultipleChunks)
     );
 }
 
+TEST(EmailChunkerTest, RejectsZeroChunkSize)
+{
+    EXPECT_THROW(
+        cortex::email::EmailChunker chunker(0),
+        std::invalid_argument
+    );
+}

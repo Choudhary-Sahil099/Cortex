@@ -8,7 +8,7 @@
 namespace cortex::email {
 	class EmailChunker {
 		public:
-			explicit EmailChunker(size_t chunk_size = 500); //The size is a fixed size parameter for the intial phase only and will be updated in the future
+			explicit EmailChunker(size_t chunk_size = 500); //The size is a fixed size parameter for the intial phase only and will be updated in the future if want more chunk size
 			std::vector<emailChunk> chunk(const EmailDocument& email) const;
 
 		private:

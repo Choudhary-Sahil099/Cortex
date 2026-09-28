@@ -1,4 +1,6 @@
 #include "email/email_chunker.hpp"
+
+#include<stdexcept>
 #include <algorithm>
 namespace cortex::email {
 
@@ -7,6 +9,11 @@ namespace cortex::email {
     )
         : chunk_size_(chunk_size)
     {
+        // edge case handling 
+        if (chunk_size == 0) {
+            throw std::invalid_argument("Chunk size must be greater than 0");
+        }
+
     }
 
     std::vector<emailChunk> EmailChunker::chunk(

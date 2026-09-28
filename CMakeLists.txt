@@ -189,6 +189,10 @@ add_executable(cortex_tests
     tests/email/email_parserer_test.cpp
     tests/email/email_cleaner_test.cpp
     tests/email/email_chunker_test.cpp
+
+
+    #embedding
+    tests/embedding/embedder_test.cpp
 )
 
 target_link_libraries(cortex_tests
