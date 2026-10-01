@@ -142,4 +142,12 @@ namespace cortex::embedding
 
         return ids;
     }
+
+    int64_t WordPieceTokenizer::tokenId(const std::string& token)const{
+        const auto iterator = vocabulary_.find(token);
+        if(iterator == vocabulary_.end()){
+            throw std::runtime_error("Token is missing" + token);
+        }
+        return iterator -> second;
+    }
 }

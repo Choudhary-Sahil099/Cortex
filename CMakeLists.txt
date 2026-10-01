@@ -80,7 +80,7 @@ add_library(cortex_core
     src/embedding/wordpiece_tokenizer.cpp
     src/embedding/bacsic_tokenizer.cpp
     src/embedding/bert_normalizer.cpp
-    
+    src/embedding/bert_tokenizer.cpp
 )
 
 target_include_directories(cortex_core
@@ -229,6 +229,7 @@ add_executable(cortex_tests
     tests/embedding/wordpiece_tokenizer_test.cpp
     tests/embedding/basicTokenizerTest.cpp
     tests/embedding/bertNormaizationTest.cpp
+    tests/embedding/bertTokenizerTest.cpp
 )
 
 target_link_libraries(cortex_tests

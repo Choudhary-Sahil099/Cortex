@@ -22,6 +22,8 @@ public:
         const std::vector<std::string>& tokens
     ) const;
 
+    int64_t tokenId(const std::string& token)const;
+
 private:
 
     std::unordered_map<std::string, int64_t> vocabulary_;
