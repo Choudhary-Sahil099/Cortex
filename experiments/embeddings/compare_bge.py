@@ -70,6 +70,23 @@ def main():
 
     last_hidden_state = outputs[0]
 
+    raw_cls = last_hidden_state[0, 0, :]
+
+    print("Python raw CLS first 10:")
+
+    for value in raw_cls[:10]:
+        print(value)
+
+    print("Python raw CLS norm:")
+    print(np.linalg.norm(raw_cls))
+
+    normalized_cls = raw_cls / np.linalg.norm(raw_cls)
+
+    print("Python normalized CLS first 10:")
+
+    for value in normalized_cls[:10]:
+        print(value)
+
     print("ONNX output shape:")
     print(last_hidden_state.shape)
 
