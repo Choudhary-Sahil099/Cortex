@@ -81,6 +81,7 @@ add_library(cortex_core
     src/embedding/bacsic_tokenizer.cpp
     src/embedding/bert_normalizer.cpp
     src/embedding/bert_tokenizer.cpp
+    src/embedding/bgeEmbedder.cpp
 )
 
 target_include_directories(cortex_core
@@ -230,6 +231,7 @@ add_executable(cortex_tests
     tests/embedding/basicTokenizerTest.cpp
     tests/embedding/bertNormaizationTest.cpp
     tests/embedding/bertTokenizerTest.cpp
+    tests/embedding/bge_embedder_test.cpp
 )
 
 target_link_libraries(cortex_tests
