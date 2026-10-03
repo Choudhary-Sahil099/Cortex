@@ -119,7 +119,7 @@ namespace cortex::index {
         return vector_store_.vector_data(id);
     }
 
-    std::size_t HNSWIndex::insert(vector::Vector vector) {
+    std::size_t HNSWIndex::insert(vector::Vector vector , core::metaData metadata) {
         if (vector.dimension() != dimension_) {
             throw std::invalid_argument(
                 "Vector dimension does not match HNSW index dimension"
@@ -128,7 +128,8 @@ namespace cortex::index {
 
         const std::size_t id =
             vector_store_.add(
-                std::move(vector)
+                std::move(vector),
+                std::move(metadata)
             );
 
         const float* inserted_data =

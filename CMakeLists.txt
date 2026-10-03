@@ -64,6 +64,7 @@ add_library(cortex_core
     src/index/hnsw.cpp
     src/index/hnsw_level_generator.cpp
     src/index/neighbour_selection.cpp
+    src/index/vector_index.cpp
 
 
     #persistence
@@ -82,6 +83,7 @@ add_library(cortex_core
     src/embedding/bert_normalizer.cpp
     src/embedding/bert_tokenizer.cpp
     src/embedding/bgeEmbedder.cpp
+    src/embedding/embedding_pipeline.cpp
 )
 
 target_include_directories(cortex_core
@@ -212,6 +214,7 @@ add_executable(cortex_tests
     tests/index/hnsw_test.cpp
     tests/index/neighbour_selection_test.cpp
     tests/index/hnsw_recall_test.cpp
+    tests/index/vector_index_test.cpp
 
 
     #persistence
@@ -232,6 +235,7 @@ add_executable(cortex_tests
     tests/embedding/bertNormaizationTest.cpp
     tests/embedding/bertTokenizerTest.cpp
     tests/embedding/bge_embedder_test.cpp
+    tests/embedding/embedding_pipeline_test.cpp
 )
 
 target_link_libraries(cortex_tests

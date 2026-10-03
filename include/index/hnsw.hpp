@@ -52,7 +52,7 @@ namespace cortex::index {
         const HNSWNode& node(std::size_t id) const;
         const float* vector_data(std::size_t id) const; // access to the stored vector data
 
-        std::size_t insert(vector::Vector vector);
+        std::size_t insert(vector::Vector vector, core::metaData metadata = {});
         bool remove(std::size_t id); //remove a node
         bool update(
             std::size_t id,

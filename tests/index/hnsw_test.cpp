@@ -1200,3 +1200,57 @@ TEST(HNSWTest, SearchUsesUpdatedVector)
 
     EXPECT_FLOAT_EQ(results[0].distance, 0.0f);
 }
+
+TEST(HNSWTest, InsertStoresMetadata)
+{
+    HNSWIndex index(4, 4, 50, 20, 42);
+
+    Vector vector(4);
+
+    vector[0] = 1.0f;
+    vector[1] = 2.0f;
+    vector[2] = 3.0f;
+    vector[3] = 4.0f;
+
+    cortex::core::metaData metadata{
+        {"email_id", "email_123"},
+        {"chunk_id", "chunk_456"},
+        {"thread_id", "thread_789"},
+        {"text", "Your technical interview is scheduled for Monday."},
+        {"chunk_index", "0"}
+    };
+
+    const std::size_t id =
+        index.insert(
+            std::move(vector),
+            metadata
+        );
+
+    const auto& record =
+        index.vector_store().get(id);
+
+    EXPECT_EQ(
+        record.metadata.at("email_id"),
+        "email_123"
+    );
+
+    EXPECT_EQ(
+        record.metadata.at("chunk_id"),
+        "chunk_456"
+    );
+
+    EXPECT_EQ(
+        record.metadata.at("thread_id"),
+        "thread_789"
+    );
+
+    EXPECT_EQ(
+        record.metadata.at("text"),
+        "Your technical interview is scheduled for Monday."
+    );
+
+    EXPECT_EQ(
+        record.metadata.at("chunk_index"),
+        "0"
+    );
+}

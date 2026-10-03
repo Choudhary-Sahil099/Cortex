@@ -9,7 +9,7 @@
 
 namespace cortex::embedding
 {
-
+    //load onnx model
     BGEEmbedder::BGEEmbedder(const std::string &model_path, const std::string &vocab_path)
         : env_(ORT_LOGGING_LEVEL_WARNING, "Cortex"),
           session_options_{},
@@ -17,7 +17,7 @@ namespace cortex::embedding
           tokenizer_(vocab_path),
           dimension_(384)
     {
-        std::cout << "BGE model path: "<< model_path << "\n";
+        std::cout << "BGE model path: "<< model_path << "\n"; // mpdel path verification
         session_options_.SetIntraOpNumThreads(1);
 
         std::wstring wide_model_path(model_path.begin(), model_path.end());
@@ -41,10 +41,7 @@ namespace cortex::embedding
                 i,
                 Ort::AllocatorWithDefaultOptions{});
 
-            std::cout << "Output " << i
-                      << ": "
-                      << name.get()
-                      << "\n";
+            std::cout << "Output " << i<< ": "<<name.get()<< "\n";
         }
 
         auto providers = Ort::GetAvailableProviders();
@@ -61,6 +58,8 @@ namespace cortex::embedding
     {
         return dimension_;
     }
+
+
 
     // l2 normalization --> BGE pipeline that is validated in the python performed the L2 normalization after the CLS pooling
     std::vector<float> BGEEmbedder::normalize(std::vector<float> vector)
@@ -86,6 +85,8 @@ namespace cortex::embedding
 
         return vector;
     }
+
+
     std::vector<float> BGEEmbedder::embed(const std::string &text) const
     {
 
