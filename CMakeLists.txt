@@ -84,6 +84,9 @@ add_library(cortex_core
     src/embedding/bert_tokenizer.cpp
     src/embedding/bgeEmbedder.cpp
     src/embedding/embedding_pipeline.cpp
+
+    #RETRIVAL
+    src/retrieval/retrievel.cpp
 )
 
 target_include_directories(cortex_core
