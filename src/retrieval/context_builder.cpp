@@ -10,23 +10,46 @@ std::string ContextBuilder::build(
 {
     std::ostringstream context;
 
-    for (std::size_t i = 0; i < results.size(); ++i) {
+    std::size_t context_index = 0; // this is to avoid the unecessary counting of the chunks that do not make it to the context
 
-        const auto* record = results[i].record; // records in the vector store 
+    for (const auto& result : results) {
 
-        if (record == nullptr) continue;
+        const auto* record = result.record;
 
-        context << "Email " << (i + 1) << "\n";
-
-        context << "Email ID: "<< record->metadata.at("email_id")<< "\n";
-
-        context << "Thread ID: "<< record->metadata.at("thread_id")<< "\n";
-        context << "Content:\n";
-        context << record->metadata.at("text")<< "\n";
-
-        if (i + 1 < results.size()) {
-            context << "\n---\n\n";
+        if (record == nullptr) {
+            continue;
         }
+        // find if present else we will skip it 
+        const auto email_it =
+            record->metadata.find("email_id");
+
+        const auto thread_it =
+            record->metadata.find("thread_id");
+
+        const auto text_it =
+            record->metadata.find("text");
+
+        if (
+            email_it == record->metadata.end() ||
+            thread_it == record->metadata.end() ||
+            text_it == record->metadata.end()
+        ) {
+            continue;
+        }
+
+        ++context_index;
+
+        context << "Email "<< context_index<< "\n";
+
+        context << "Email ID: "<< email_it->second<< "\n";
+
+        context << "Thread ID: "<< thread_it->second<< "\n";
+
+        context << "Content:\n";
+
+        context << text_it->second<< "\n";
+
+        context << "\n---\n\n";
     }
 
     return context.str();

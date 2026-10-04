@@ -1,0 +1,9 @@
+﻿{
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is a vector database? Explain it in simple terms."
+    }
+  ],
+  "max_tokens": 100
+}

@@ -88,6 +88,9 @@ add_library(cortex_core
     #RETRIVAL
     src/retrieval/retrievel.cpp
     src/retrieval/context_builder.cpp
+
+    #rag
+    src/rag/rag_pipeline.cpp
 )
 
 target_include_directories(cortex_core
@@ -244,6 +247,12 @@ add_executable(cortex_tests
 
     #retireval tests
     tests/retrieval/context_builder_test.cpp
+
+    #llm
+    tests/llm/llm_test.cpp
+
+    #rag
+    tests/rag/rag_pipeline_test.cpp
 )
 
 target_link_libraries(cortex_tests

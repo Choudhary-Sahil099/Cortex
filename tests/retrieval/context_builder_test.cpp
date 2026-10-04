@@ -84,3 +84,103 @@ TEST(ContextBuilderTest, BuildsContextFromRetrievedChunks)
         std::string::npos
     );
 }
+
+
+TEST(ContextBuilderTest, SkipsResultsWithMissingMetadata)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk valid_chunk;
+
+    valid_chunk.id = "chunk_valid";
+    valid_chunk.email_id = "email_valid";
+    valid_chunk.thread_id = "thread_valid";
+    valid_chunk.text = "This is valid email content.";
+    valid_chunk.index = 0;
+
+    valid_chunk.embedding = {
+        1.0f,
+        0.0f,
+        0.0f
+    };
+
+    const auto valid_id =
+        index.add(valid_chunk);
+
+    cortex::index::VectorSearchResult invalid_result{
+        999,
+        0.5f,
+        nullptr
+    };
+
+    std::vector<cortex::index::VectorSearchResult> results;
+
+    results.push_back({
+        valid_id,
+        0.1f,
+        &index.get(valid_id)
+    });
+
+    results.push_back(invalid_result);
+
+    cortex::retrieval::ContextBuilder builder;
+
+    const std::string context =
+        builder.build(results);
+
+    EXPECT_NE(
+        context.find(
+            "This is valid email content."
+        ),
+        std::string::npos
+    );
+
+    EXPECT_EQ(
+        context.find("Email 2"),
+        std::string::npos
+    );
+}
+
+TEST(ContextBuilderTest, SkipsResultsWithMissingText)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk_missing_text";
+    chunk.email_id = "email_1";
+    chunk.thread_id = "thread_1";
+    chunk.text = "Temporary text.";
+    chunk.index = 0;
+
+    chunk.embedding = {
+        1.0f,
+        0.0f,
+        0.0f
+    };
+
+    const auto id = index.add(chunk);
+
+    //search result pointing to the record
+    auto& record =
+        const_cast<cortex::core::VectorRecord&>(
+            index.get(id)
+        );
+
+    record.metadata.erase("text");
+
+    std::vector<cortex::index::VectorSearchResult> results;
+
+    results.push_back({
+        id,
+        0.1f,
+        &index.get(id)
+    });
+
+    cortex::retrieval::ContextBuilder builder;
+
+    const std::string context =
+        builder.build(results);
+
+    EXPECT_TRUE(context.empty());
+}
