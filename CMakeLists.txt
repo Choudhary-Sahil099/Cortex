@@ -87,6 +87,7 @@ add_library(cortex_core
 
     #RETRIVAL
     src/retrieval/retrievel.cpp
+    src/retrieval/context_builder.cpp
 )
 
 target_include_directories(cortex_core
@@ -239,6 +240,10 @@ add_executable(cortex_tests
     tests/embedding/bertTokenizerTest.cpp
     tests/embedding/bge_embedder_test.cpp
     tests/embedding/embedding_pipeline_test.cpp
+
+
+    #retireval tests
+    tests/retrieval/context_builder_test.cpp
 )
 
 target_link_libraries(cortex_tests
