@@ -91,6 +91,9 @@ add_library(cortex_core
 
     #rag
     src/rag/rag_pipeline.cpp
+
+    #llm
+    src/llm/local_llm.cpp
 )
 
 target_include_directories(cortex_core
@@ -104,6 +107,8 @@ target_include_directories(cortex_core
 target_link_libraries(cortex_core
     PUBLIC
         ${ONNXRUNTIME_LIBRARY}
+        CURL::libcurl
+        nlohmann_json::nlohmann_json
 )
 # ============================================================
 # CPU / SIMD Configuration
@@ -157,6 +162,9 @@ target_link_libraries(cortex
 # ============================================================
 # Dependencies
 # ============================================================
+
+find_package(CURL CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 include(FetchContent)
 
@@ -263,7 +271,10 @@ target_link_libraries(cortex_tests
 
 include(GoogleTest)
 
-gtest_discover_tests(cortex_tests)
+gtest_discover_tests(
+    cortex_tests
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 # ============================================================
 # Benchmarks
@@ -309,6 +320,25 @@ target_link_libraries(bge_onnx_experiment
 
         cortex_core
 
+)
+
+#--llm
+add_executable(llm_test experiments/llm/llm_test.cpp)
+
+target_link_libraries(
+    llm_test
+    PRIVATE
+        cortex_core
+)
+
+add_executable(rag_local_llm
+    experiments/llm/rag_local_llm.cpp
+)
+
+target_link_libraries(
+    rag_local_llm
+    PRIVATE
+        cortex_core
 )
 
 add_custom_command(

@@ -2,8 +2,9 @@
   "messages": [
     {
       "role": "user",
-      "content": "What is a vector database? Explain it in simple terms."
+      "content": "When is my technical interview?"
     }
   ],
-  "max_tokens": 100
+  "max_tokens": 512,
+  "reasoning_effort": "low"
 }
