@@ -68,37 +68,19 @@ namespace cortex::persistence {
         //index states
 
         // the id preservence
-        const std::uint64_t next_id =
-            static_cast<std::uint64_t>(
-                index.next_id()
-                );
+        const std::uint64_t next_id = static_cast<std::uint64_t>(index.next_id());
 
         // entry state point
-        const std::uint64_t entry_point =
-            static_cast<std::uint64_t>(
-                index.entry_point()
-                );
+        const std::uint64_t entry_point =static_cast<std::uint64_t>(index.entry_point());
         // max level
-        const std::uint64_t max_level =
-            static_cast<std::uint64_t>(
-                index.max_level()
-                );
+        const std::uint64_t max_level =static_cast<std::uint64_t>(index.max_level());
       
 
-        file.write(
-            reinterpret_cast<const char*>(&next_id),
-            sizeof(next_id)
-        );
+        file.write(reinterpret_cast<const char*>(&next_id),sizeof(next_id));
 
-        file.write(
-            reinterpret_cast<const char*>(&entry_point),
-            sizeof(entry_point)
-        );
+        file.write(reinterpret_cast<const char*>(&entry_point),sizeof(entry_point));
 
-        file.write(
-            reinterpret_cast<const char*>(&max_level),
-            sizeof(max_level)
-        );
+        file.write(reinterpret_cast<const char*>(&max_level),sizeof(max_level));
         // serialize the vector values
         const auto& records = index.vector_store().records();
 
@@ -204,15 +186,9 @@ namespace cortex::persistence {
 
         for (const auto& [id, node_ptr] : nodes) {
 
-            const std::uint64_t node_id =
-                static_cast<std::uint64_t>(
-                    id
-                    );
+            const std::uint64_t node_id =static_cast<std::uint64_t>(id);
 
-            const std::uint64_t level =
-                static_cast<std::uint64_t>(
-                    node_ptr->level()
-                    );
+            const std::uint64_t level = static_cast<std::uint64_t>(node_ptr->level());
 
             file.write(
                 reinterpret_cast<const char*>(&node_id),
@@ -223,9 +199,7 @@ namespace cortex::persistence {
                 reinterpret_cast<const char*>(&level),
                 sizeof(level)
             );
-            for (std::size_t current_level = 0;
-                current_level <= node_ptr->level();
-                ++current_level) {
+            for (std::size_t current_level = 0;current_level <= node_ptr->level();++current_level) {
 
                 const auto& neighbours =
                     node_ptr->neighbors(current_level);
@@ -243,18 +217,8 @@ namespace cortex::persistence {
                 );
 
                 for (const std::size_t neighbour_id : neighbours) {
-
-                    const std::uint64_t stored_neighbour_id =
-                        static_cast<std::uint64_t>(
-                            neighbour_id
-                            );
-
-                    file.write(
-                        reinterpret_cast<const char*>(
-                            &stored_neighbour_id
-                            ),
-                        sizeof(stored_neighbour_id)
-                    );
+                    const std::uint64_t stored_neighbour_id =static_cast<std::uint64_t>(neighbour_id);
+                    file.write(reinterpret_cast<const char*>(&stored_neighbour_id),sizeof(stored_neighbour_id));
                 }
             }
         }

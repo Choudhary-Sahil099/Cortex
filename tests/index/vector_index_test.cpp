@@ -1,10 +1,34 @@
 #include "index/vector_index.hpp"
+#include "embedding/embedding_pipeline.hpp"
 
+#include "email/email_parserer.hpp"
+#include "email/email_cleaner.hpp"
+#include "email/email_chunker.hpp"
+
+#include "ingestion/email_indexer.hpp"
 #include <gtest/gtest.h>
+#include <stdexcept>
+#include <string>
+#include <vector>
 #include "embedding/bgeEmbedder.hpp"
 using cortex::embedding::EmbeddedChunk;
 using cortex::index::VectorIndex;
 
+class FailingEmbedder : public cortex::embedding::Embedder
+{
+public:
+    std::vector<float> embed(
+        const std::string&
+    ) const override
+    {
+        throw std::runtime_error("Embedding failed");
+    }
+
+    std::size_t dimension() const override
+    {
+        return 3;
+    }
+};
 TEST(VectorIndexTest, AddsEmbeddedChunk)
 {
     VectorIndex index(3);
@@ -195,5 +219,174 @@ TEST(VectorIndexTest, BGERetrievesSemanticallyRelevantChunk)
     EXPECT_EQ(
         results[0].record->metadata.at("email_id"),
         "email_interview"
+    );
+}
+
+TEST(VectorIndexTest, RemoveVector)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk-001";
+    chunk.email_id = "email-001";
+    chunk.thread_id = "thread-001";
+    chunk.text = "Test email content";
+    chunk.embedding = {1.0f, 2.0f, 3.0f};
+    chunk.index = 0;
+
+    const std::size_t id = index.add(chunk);
+
+    EXPECT_EQ(index.size(), 1);
+
+    const bool removed = index.remove(id);
+
+    EXPECT_TRUE(removed);
+    EXPECT_EQ(index.size(), 0);
+
+    EXPECT_THROW(
+        index.get(id),
+        std::out_of_range
+    );
+}
+
+TEST(VectorIndexTest, FindByMetadata)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk1;
+    chunk1.id = "chunk-001";
+    chunk1.email_id = "email-001";
+    chunk1.thread_id = "thread-001";
+    chunk1.text = "First chunk";
+    chunk1.embedding = {1.0f, 2.0f, 3.0f};
+    chunk1.index = 0;
+
+    cortex::embedding::EmbeddedChunk chunk2;
+    chunk2.id = "chunk-002";
+    chunk2.email_id = "email-001";
+    chunk2.thread_id = "thread-001";
+    chunk2.text = "Second chunk";
+    chunk2.embedding = {2.0f, 3.0f, 4.0f};
+    chunk2.index = 1;
+
+    cortex::embedding::EmbeddedChunk chunk3;
+    chunk3.id = "chunk-003";
+    chunk3.email_id = "email-002";
+    chunk3.thread_id = "thread-002";
+    chunk3.text = "Third chunk";
+    chunk3.embedding = {3.0f, 4.0f, 5.0f};
+    chunk3.index = 0;
+
+    const std::size_t id1 = index.add(chunk1);
+    const std::size_t id2 = index.add(chunk2);
+    const std::size_t id3 = index.add(chunk3);
+
+    const auto results =
+        index.findByMetadata("email_id", "email-001");
+
+    ASSERT_EQ(results.size(), 2);
+
+    EXPECT_EQ(results[0], id1);
+    EXPECT_EQ(results[1], id2);
+
+    EXPECT_EQ(
+        index.findByMetadata("email_id", "email-002").size(),
+        1
+    );
+
+    EXPECT_EQ(
+        index.findByMetadata("email_id", "does-not-exist").size(),
+        0
+    );
+}
+
+TEST(EmailIndexerTest, KeepsExistingEmailWhenEmbeddingFails)
+{
+    const std::string model_path =
+        "models/bge-small-en-v1.5/onnx/model.onnx";
+
+    const std::string vocab_path =
+        "models/bge-small-en-v1.5/vocab.txt";
+
+    cortex::embedding::BGEEmbedder working_embedder(
+        model_path,
+        vocab_path
+    );
+
+    cortex::embedding::EmbeddingPipeline working_pipeline(
+        working_embedder
+    );
+
+    cortex::index::VectorIndex index(
+        working_embedder.dimension()
+    );
+
+    cortex::email::EmailParser parser;
+    cortex::email::EmailCleaner cleaner;
+    cortex::email::EmailChunker chunker(500);
+
+    cortex::ingestion::EmailIndexer working_indexer(
+        parser,
+        cleaner,
+        chunker,
+        working_pipeline,
+        index
+    );
+
+    const std::string email =
+        "ID: email-001\n"
+        "Thread-ID: thread-001\n"
+        "From: recruiter@example.com\n"
+        "To: sahil@example.com\n"
+        "Subject: Interview\n"
+        "Date: 2026-10-05\n"
+        "\n"
+        "Your technical interview is scheduled for Monday at 10 AM.";
+
+    // Successfully index the original email.
+    working_indexer.addEmail(email);
+
+    const std::size_t original_size =
+        index.size();
+
+    ASSERT_GT(original_size, 0);
+
+    // Create an embedder that always fails.
+    FailingEmbedder failing_embedder;
+
+    cortex::embedding::EmbeddingPipeline failing_pipeline(
+        failing_embedder
+    );
+
+    cortex::ingestion::EmailIndexer failing_indexer(
+        parser,
+        cleaner,
+        chunker,
+        failing_pipeline,
+        index
+    );
+
+    // Re-indexing should fail during embedding.
+    EXPECT_THROW(
+        failing_indexer.addEmail(email),
+        std::runtime_error
+    );
+
+    // The old vectors must still exist.
+    EXPECT_EQ(
+        index.size(),
+        original_size
+    );
+
+    const auto existing_ids =
+        index.findByMetadata(
+            "email_id",
+            "email-001"
+        );
+
+    EXPECT_EQ(
+        existing_ids.size(),
+        original_size
     );
 }

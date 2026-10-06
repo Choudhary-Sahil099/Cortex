@@ -94,6 +94,9 @@ add_library(cortex_core
 
     #llm
     src/llm/local_llm.cpp
+
+    #ingestion
+    src/ingestion/email_indexer.cpp
 )
 
 target_include_directories(cortex_core

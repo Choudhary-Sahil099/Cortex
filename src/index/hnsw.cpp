@@ -251,11 +251,9 @@ namespace cortex::index {
             return false;
         }
 
-        HNSWNode& node =
-            *node_it->second;
+        HNSWNode& node =*node_it->second;
 
-        const std::size_t node_level =
-            node.level();
+        const std::size_t node_level = node.level();
 
         std::vector<std::pair<std::size_t, std::size_t>>
             edges_to_remove;

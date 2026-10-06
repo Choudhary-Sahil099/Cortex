@@ -1,7 +1,17 @@
 #include "core/vector_store.hpp"
 #include "persistence/serializer.hpp"
 
+#include "embedding/embedding_pipeline.hpp"
+#include "embedding/bgeEmbedder.hpp"
 
+#include "email/email_parserer.hpp"
+#include "email/email_cleaner.hpp"
+#include "email/email_chunker.hpp"
+
+#include "index/vector_index.hpp"
+#include "ingestion/email_indexer.hpp"
+
+#include "retrival/retriever.hpp"
 #include <cstdio>
 #include <gtest/gtest.h>
 
@@ -11,6 +21,7 @@
 #include <stdexcept>
 #include <utility>
 #include <fstream> // for files 
+#include <filesystem>
 namespace {
 
     cortex::vector::Vector make_vector(
@@ -689,4 +700,116 @@ namespace {
 
         std::remove(path.c_str());
     }
+}
+
+TEST(PersistenceIntegrationTest, EmailCanBeRetrievedAfterReload)
+{
+    const std::string model_path =
+        "models/bge-small-en-v1.5/onnx/model.onnx";
+
+    const std::string vocab_path =
+        "models/bge-small-en-v1.5/vocab.txt";
+
+    const std::string persistence_path =
+        "test_email_persistence.cortex";
+
+    cortex::embedding::BGEEmbedder embedder(
+        model_path,
+        vocab_path
+    );
+
+    cortex::embedding::EmbeddingPipeline embedding_pipeline(
+        embedder
+    );
+
+
+    cortex::email::EmailParser parser;
+    cortex::email::EmailCleaner cleaner;
+    cortex::email::EmailChunker chunker(500);
+
+    cortex::index::VectorIndex index(
+        embedder.dimension()
+    );
+
+    cortex::ingestion::EmailIndexer indexer(
+        parser,
+        cleaner,
+        chunker,
+        embedding_pipeline,
+        index
+    );
+
+
+    const std::string email =
+        "ID: email-persistence-001\n"
+        "Thread-ID: thread-persistence-001\n"
+        "From: recruiter@example.com\n"
+        "To: sahil@example.com\n"
+        "Subject: Technical Interview\n"
+        "Date: 2026-10-05\n"
+        "\n"
+        "Your technical interview is scheduled for Monday "
+        "at 10 AM. Please join the meeting using the "
+        "provided interview link.";
+
+    indexer.addEmail(email);
+
+    ASSERT_GT(index.size(), 0);
+
+
+    cortex::persistence::Serializer::save(
+        index.hnsw(),
+        persistence_path
+    );
+
+    auto loaded_hnsw =
+        cortex::persistence::Serializer::load(
+            persistence_path
+        );
+
+    cortex::index::VectorIndex loaded_index(
+        std::move(loaded_hnsw)
+    );
+
+    ASSERT_GT(loaded_index.size(), 0);
+
+
+    cortex::retrieval::Retriever retriever(
+        embedder,
+        loaded_index
+    );
+
+    const auto results =
+        retriever.search(
+            "When is the technical interview?",
+            1
+        );
+
+    ASSERT_FALSE(results.empty());
+        //email verification
+    ASSERT_NE(results[0].record, nullptr);
+
+    const auto& metadata =
+        results[0].record->metadata;
+
+    ASSERT_TRUE(
+        metadata.find("email_id") != metadata.end()
+    );
+
+    EXPECT_EQ(
+        metadata.at("email_id"),
+        "email-persistence-001"
+    );
+
+    ASSERT_TRUE(
+        metadata.find("text") != metadata.end()
+    );
+
+    EXPECT_NE(
+        metadata.at("text").find("technical interview"),
+        std::string::npos
+    );
+
+
+    std::filesystem::remove(persistence_path);
 }

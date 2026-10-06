@@ -2,10 +2,12 @@
 
 #include <stdexcept>
 #include <string>
-
+#include <utility>
 namespace cortex::index {
 
     VectorIndex::VectorIndex(std::size_t dimension): hnsw_(dimension){}
+
+    VectorIndex::VectorIndex(HNSWIndex hnsw): hnsw_(std::move(hnsw)){}
 
     std::size_t VectorIndex::size() const
     {
@@ -93,5 +95,32 @@ namespace cortex::index {
 
         return results;
     }
+    bool VectorIndex::remove(std::size_t id)
+    {
+        return hnsw_.remove(id);
+    }
+    std::vector<std::size_t> VectorIndex::findByMetadata(
+        const std::string& key,
+        const std::string& value
+    ) const
+    {
+        std::vector<std::size_t> ids;
 
+        for (const auto& record : hnsw_.vector_store().records())
+        {
+            const auto it = record.metadata.find(key);
+
+            if (it != record.metadata.end() &&
+                it->second == value)
+            {
+                ids.push_back(record.id);
+            }
+        }
+
+        return ids;
+    }
+    const HNSWIndex& VectorIndex::hnsw() const
+    {
+        return hnsw_;
+    }
 }

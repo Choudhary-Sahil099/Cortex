@@ -9,7 +9,7 @@
 #include "email/email_parserer.hpp"
 #include "email/email_cleaner.hpp"
 #include "email/email_chunker.hpp"
-
+#include "ingestion/email_indexer.hpp"
 #include <iostream>
 
 int main()
@@ -32,43 +32,30 @@ int main()
         "\n"
         "Your technical interview is scheduled for Monday at 10 AM.";
 
-    // parse
     cortex::email::EmailParser parser;
 
-    const cortex::email::EmailDocument document =
-        parser.parse(raw_email);
-
-    //email cleaning
     cortex::email::EmailCleaner cleaner;
 
-    const cortex::email::EmailDocument cleaned_email =
-        cleaner.clean(document);
-
-
-    // chunk
     cortex::email::EmailChunker chunker(500);
 
-    const auto chunks =
-        chunker.chunk(cleaned_email);
-
-
-    // embeddingpipeline
     cortex::embedding::EmbeddingPipeline embedding_pipeline(
         embedder
     );
 
-    //vector index
     cortex::index::VectorIndex index(
         embedder.dimension()
     );
 
-    for (const auto& chunk : chunks) {
+    cortex::ingestion::EmailIndexer indexer(
+        parser,
+        cleaner,
+        chunker,
+        embedding_pipeline,
+        index
+    );
 
-        const auto embedded_chunk =
-            embedding_pipeline.embed(chunk);
+    indexer.addEmail(raw_email);
 
-        index.add(embedded_chunk);
-    }
     ///retriever
     cortex::retrieval::Retriever retriever(
         embedder,
