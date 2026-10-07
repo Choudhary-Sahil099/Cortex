@@ -102,6 +102,7 @@ add_library(cortex_core
 
     #app
     src/app/cortex_app.cpp
+    src/app/enviroment.cpp
 )
 
 target_include_directories(cortex_core

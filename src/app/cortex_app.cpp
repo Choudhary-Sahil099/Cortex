@@ -1,5 +1,4 @@
 #include "app/cortex_app.hpp"
-
 #include <utility>
 #include <filesystem>
 #include <stdexcept>

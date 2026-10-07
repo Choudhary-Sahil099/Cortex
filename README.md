@@ -1,556 +1,540 @@
 # Cortex
 
-## High-Performance C++ Vector Engine
+Cortex is a C++20 local vector search and Retrieval-Augmented Generation (RAG) engine.
 
-Cortex is a high-performance vector computation engine written in modern C++20.
+The V1 implementation combines a high-performance vector engine, HNSW approximate nearest-neighbor search, persistent vector storage, email ingestion, BGE embeddings, semantic retrieval, and a local LLM to answer questions over email data with source attribution.
 
-The project focuses on building the low-level numerical infrastructure used by vector search and similarity-search systems, with an emphasis on:
+## V1 Architecture
 
-* SIMD acceleration
-* CPU feature detection
-* Cache-friendly memory layouts
-* Vectorized distance computation
-* Batch processing
-* Top-K search
-* Performance benchmarking
+```
+                         USER
+                           │
+                           ▼
+                    Cortex CLI
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+              index                 ask
+                 │                   │
+                 ▼                   ▼
+          Email Ingestion        Question
+                 │                   │
+                 ▼                   ▼
+            EmailParser          Retriever
+                 │                   │
+                 ▼                   ▼
+         Cleaner / Chunker       HNSW Search
+                 │                   │
+                 ▼                   │
+          BGE Embeddings             │
+                 │                   │
+                 ▼                   │
+        ┌───────────────────────┐    │
+        │        Cortex         │◄───┘
+        │                       │
+        │   VectorStore         │
+        │   HNSW Index          │
+        │   Persistence         │
+        └───────────┬───────────┘
+                    │
+                    ▼
+              Retrieved Chunks
+                    │
+                    ├──────────────► Sources
+                    │
+                    ▼
+              Context Builder
+                    │
+                    ▼
+                Local LLM
+                    │
+                    ▼
+             Answer + Sources
+```
 
-Cortex is being developed as a foundation for a future approximate nearest neighbor (ANN) indexing layer.
+## Features
 
-## Phase 1 — Vector Engine
+### Vector Engine
 
-Phase 1 implements the core vector computation engine.
-
-### Implemented
-
-* Aligned memory allocation
-* Dynamic vector representation
-* Dimension validation
-* Scalar L2 distance
-* AVX2 L2 distance
-* AVX2 + FMA L2 distance
-* Runtime CPU feature detection
-* Automatic SIMD backend selection
-* Scalar / AVX2 / AVX2+FMA dot product
+* C++20 vector representation and storage
+* L2 distance
+* Dot product
 * Cosine similarity
-* Batch L2 distance
-* Contiguous vector storage
-* Top-K vector search
-* GoogleTest correctness tests
-* Google Benchmark performance tests
+* Batch distance computation
+* Top-K nearest-neighbor search
+* SIMD-accelerated distance computation
+* Runtime CPU feature detection
+* Scalar / AVX2 / AVX2+FMA dispatch
 
-## Architecture
+### HNSW
 
-**Plaintext**
+Cortex implements Hierarchical Navigable Small World (HNSW) approximate nearest-neighbor search.
 
-```
-                           Cortex
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-             Vector                  VectorStore
-                │                         │
-                └────────────┬────────────┘
-                             │
-                       Vector Backend
-                             │
-                ┌────────────┼────────────┐
-                │            │            │
-              Scalar        AVX2      AVX2 + FMA
-                │            │            │
-                └────────────┴────────────┘
-                             │
-                   Distance / Similarity
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-         Batch Processing            Top-K Search
-```
+Supported operations include:
 
-## SIMD Backend Selection
+* Vector insertion
+* Approximate nearest-neighbor search
+* Vector removal
+* Vector update
+* Metadata storage
+* Configurable `M`
+* Configurable construction/search parameters
+* Multi-level graph structure
+* Neighbor selection
+* Persistent graph serialization
 
-Cortex detects CPU capabilities at runtime and automatically selects the fastest supported backend.
+### Persistent Vector Storage
 
-**Plaintext**
+The HNSW index and vector data can be serialized to disk and loaded again.
 
-```
-CPU supports AVX2 + FMA
-        ↓
-   AVX2 + FMA
+Persistence includes:
 
-CPU supports AVX2
-        ↓
-      AVX2
+* Index configuration
+* Vector records
+* Metadata
+* HNSW nodes
+* HNSW edges
+* Entry point
+* Maximum graph level
+* Next vector ID
 
-Otherwise
-        ↓
-     Scalar
-```
+The persistence layer also validates file structure, version, dimensions, node levels, and neighbor references when loading.
 
-This allows the same application to use hardware-specific optimizations without requiring the caller to manually select an implementation.
+### Email Ingestion
 
-## Memory Layout
+V1 supports indexing `.eml` files.
 
-Cortex uses aligned memory for individual vectors.
-
-**Vector**
-
-**Plaintext**
+The ingestion pipeline is:
 
 ```
-┌─────────────────────────────────────────────┐
-│ f0 │ f1 │ f2 │ f3 │ ... │ f1534 │ f1535 │
-└─────────────────────────────────────────────┘
-                      ↓
-               32-byte aligned
+.eml file
+   │
+   ▼
+EmailFileLoader
+   │
+   ▼
+EmailParser
+   │
+   ▼
+EmailCleaner
+   │
+   ▼
+EmailChunker
+   │
+   ▼
+EmbeddingPipeline
+   │
+   ▼
+VectorIndex / HNSW
 ```
 
-**VectorStore** provides contiguous storage for multiple vectors:
+The parser extracts email information such as:
 
-**Plaintext**
+* ID
+* Thread ID
+* Sender
+* Recipients
+* Subject
+* Date
+* Body
 
-```
-Vector 0: [f0 f1 f2 ... f1535]
-Vector 1: [f0 f1 f2 ... f1535]
-Vector 2: [f0 f1 f2 ... f1535]
-...
-Vector N: [f0 f1 f2 ... f1535]
-```
+### Semantic Embeddings
 
-The contiguous representation allows the distance kernels to operate directly on raw floating-point memory and avoids unnecessary temporary vector copies.
+Cortex uses:
 
-## Supported Operations
+**BAAI/bge-small-en-v1.5**
 
-### L2 Distance
-
-Cortex provides three implementations:
-
-**C++**
+The current embedding pipeline:
 
 ```
-l2_distance_scalar(a, b);
-l2_distance_avx2(a, b);
-l2_distance_avx2_fma(a, b);
+Email chunk
+    ↓
+WordPiece tokenizer
+    ↓
+BERT inputs
+    ↓
+ONNX Runtime
+    ↓
+last_hidden_state
+    ↓
+CLS pooling
+    ↓
+L2 normalization
+    ↓
+384-dimensional embedding
 ```
 
-The public API can automatically select the best backend:
+The ONNX model is used locally; embeddings do not require a remote embedding API.
 
-**C++**
+### Semantic Retrieval
 
-```
-l2_distance(a, b);
-```
-
-### Dot Product
-
-Three implementations are available:
-
-**C++**
+A natural-language question is embedded using the same BGE model and searched against the HNSW index.
 
 ```
-dot_product_scalar(a, b);
-dot_product_avx2(a, b);
-dot_product_avx2_fma(a, b);
+Question
+   ↓
+BGE embedding
+   ↓
+HNSW search
+   ↓
+Top-K relevant chunks
 ```
 
-The automatic interface is:
+### RAG
 
-**C++**
-
-```
-dot_product(a, b);
-```
-
-### Cosine Similarity
-
-Cortex provides cosine similarity using the optimized vector operations:
-
-**C++**
+The retrieved chunks are passed to a local LLM as context.
 
 ```
-cosine_similarity(a, b);
+Question
+   ↓
+Retriever
+   ↓
+Relevant email chunks
+   ↓
+ContextBuilder
+   ↓
+Local LLM
+   ↓
+Answer
 ```
 
-### Batch Distance
+The prompt instructs the model to answer using only the provided email context.
 
-Multiple vectors can be compared against a single query:
+### Source Attribution
 
-**C++**
+Cortex keeps source information separate from the LLM response.
 
-```
-batch_l2_distance(
-    query,
-    vectors,
-    distances
-);
-```
+The retrieved metadata is converted into structured sources containing:
 
-The backend selected by Cortex is used for the distance computation.
+* Email ID
+* Thread ID
+* Retrieved text
 
-### Top-K Search
-
-Cortex provides Top-K similarity/distance search over a collection of vectors.
-
-**Plaintext**
+The final RAG result contains:
 
 ```
-    Query
-      │
-      ▼
-Distance computation
-      │
-      ▼
-Candidate distances
-      │
-      ▼
-Top-K selection
-      │
-      ▼
-Nearest vectors
+RAGResult
+├── answer
+└── sources
+    ├── email_id
+    ├── thread_id
+    └── text
 ```
 
-This forms the basis for the future ANN indexing layer.
+Sources therefore come from retrieved records rather than being generated by the LLM.
 
-## Performance
+### Local LLM
 
-Benchmarks are implemented using Google Benchmark.
+Cortex supports a local OpenAI-compatible LLM server.
 
-The current development machine supports:
+The V1 implementation was tested with `llama.cpp` serving a local model.
 
-**Plaintext**
-
-```
-AVX2 : supported
-FMA  : supported
-
-Selected Backend:
-AVX2 + FMA
-```
-
-Example batch benchmark:
-
-**Plaintext**
+The application communicates with:
 
 ```
-BM_BatchL2Distance
-
-~100–130 µs
-~8–10M vectors/sec
+POST /v1/chat/completions
 ```
 
-For the benchmark configuration:
-
-**Plaintext**
+The default generation configuration is:
 
 ```
-Vectors          : 1000
-Dimensions/vector: 1536
-```
-
-This corresponds to roughly:
-
-> **~12–15 billion vector dimensions processed per second**
-
-Actual benchmark results depend on CPU, compiler, build configuration, memory hierarchy, and system load.
-
-## Example Output
-
-**Plaintext**
-
-```
-====================
-Cortex Vector Engine
-====================
-
-CPU Features
-------------
-AVX2 : supported
-FMA  : supported
-
-Selected Backend
-----------------
-AVX2 + FMA
-
-Vector Operations
------------------
-Dimension         : 1536
-L2 Distance       : 34.7387
-Dot Product       : 2413.56
-Cosine Similarity : 1
-
-Batch Processing
-----------------
-Vectors           : 1000
-Dimensions/vector : 1536
-Distances computed: 1000
-First distance    : 23.3151
-=================================
+max_tokens = 512
+temperature = 0.2
+reasoning_effort = low
 ```
 
 ## Project Structure
 
-**Plaintext**
-
 ```
 Cortex/
-│
 ├── include/
+│   ├── app/
+│   │   ├── cortex_app.hpp
+│   │   └── environment.hpp
 │   ├── core/
-│   │   ├── buffer.hpp
-│   │   └── cpu_features.hpp
-│   │
-│   └── vector/
-│       ├── vector.hpp
-│       ├── vector_store.hpp
-│       ├── distance.hpp
-│       ├── dot_product.hpp
-│       ├── similarity.hpp
-│       ├── backend.hpp
-│       ├── batch_distance.hpp
-│       └── search.hpp
+│   ├── embedding/
+│   ├── email/
+│   ├── index/
+│   ├── ingestion/
+│   ├── llm/
+│   ├── persistence/
+│   ├── rag/
+│   └── retrieval/
 │
 ├── src/
+│   ├── app/
 │   ├── core/
-│   │   ├── buffer.cpp
-│   │   └── cpu_features.cpp
-│   │
-│   ├── vector/
-│   │   ├── vector.cpp
-│   │   ├── vector_store.cpp
-│   │   ├── distance.cpp
-│   │   ├── distance_scalar.cpp
-│   │   ├── dot_product.cpp
-│   │   ├── similarity.cpp
-│   │   ├── backend.cpp
-│   │   ├── batch_distance.cpp
-│   │   └── search.cpp
-│   │
+│   ├── embedding/
+│   ├── email/
+│   ├── index/
+│   ├── ingestion/
+│   ├── llm/
+│   ├── persistence/
+│   ├── rag/
+│   ├── retrieval/
 │   └── main.cpp
 │
 ├── tests/
-│   ├── buffer_test.cpp
-│   ├── vector_test.cpp
-│   ├── distance_test.cpp
-│   └── batch_distance_test.cpp
+│   ├── app/
+│   ├── embedding/
+│   ├── email/
+│   ├── index/
+│   ├── ingestion/
+│   ├── persistence/
+│   ├── rag/
+│   └── retrieval/
 │
-├── benchmarks/
-│   └── distance_benchmark.cpp
-│
+├── models/
+├── data/
+├── emails/
+├── thirdParty/
 ├── CMakeLists.txt
-└── README.md
+├── .env.example
+└── .gitignore
 ```
+
+## Requirements
+
+The V1 development environment uses:
+
+* C++20
+* CMake
+* MSVC / Visual Studio
+* ONNX Runtime
+* GoogleTest
+* Google Benchmark
+* `nlohmann/json`
+* `libcurl`
+* A local OpenAI-compatible LLM server
+* BGE-small-en-v1.5 ONNX model
+
+## Configuration
+
+Cortex uses a local `.env` file for runtime configuration.
+
+Create `.env` from `.env.example`:
+
+```
+CORTEX_MODEL_PATH=models/bge-small-en-v1.5/onnx/model.onnx
+CORTEX_VOCAB_PATH=models/bge-small-en-v1.5/vocab.txt
+CORTEX_INDEX_PATH=data/email_index.cortex
+CORTEX_LLM_URL=http://127.0.0.1:8080
+```
+
+`.env` is local configuration and should not be committed.
+
+`.env.example` is safe to commit and documents the expected configuration.
 
 ## Building
 
-### Requirements
-
-* C++20 compiler
-* CMake 3.20+
-* Ninja or Visual Studio build tools
-* x64 processor
-* GoogleTest
-* Google Benchmark
-
-Dependencies are automatically fetched through CMake FetchContent.
-
-### Build
-
-**Bash**
+Build the Debug configuration with CMake:
 
 ```
-cmake -S . -B build
-cmake --build build --config Release
+cmake --build build --config Debug
 ```
 
-For Visual Studio/Ninja multi-configuration builds:
-
-**Bash**
+The main executable is:
 
 ```
-cmake --build out/build/x64-Release --config Release
+build/Debug/cortex.exe
 ```
 
 ## Running
 
-### Application
-
-**Bash**
+### Show help
 
 ```
-./cortex
+.uild\Debug\cortex.exe help
 ```
 
-On Windows:
-
-**DOS**
+Output:
 
 ```
-cortex.exe
+Cortex - Local Email RAG Engine
+
+Usage:
+  cortex index <email-directory>
+  cortex ask <question>
+  cortex help
 ```
 
-### Tests
+### Index emails
+
+Place `.eml` files in an email directory:
+
+```
+emails/
+├── interview.eml
+├── project.eml
+└── meeting.eml
+```
+
+Then run:
+
+```
+.uild\Debug\cortex.exe index .\emails
+```
+
+Cortex parses, cleans, chunks, embeds, and indexes the emails, then persists the resulting HNSW index.
+
+### Ask a question
+
+Start the local LLM server and then run:
+
+```
+.uild\Debug\cortex.exe ask "When is my technical interview?"
+```
+
+Example result:
+
+```
+Answer:
+Your technical interview is scheduled for Monday at 10:00 AM.
+
+Sources:
+- Email: email-001
+  Thread: thread-001
+  Content: Hi Sahil,
+
+Your technical interview is scheduled for Monday at 10:00 AM.
+
+Please join the meeting using the interview link.
+
+Best,
+Recruiting Team
+```
+
+## Testing
 
 Cortex uses GoogleTest.
 
-Run the test executable:
-
-**DOS**
+Because the project uses a Visual Studio multi-configuration generator, specify the configuration when running CTest:
 
 ```
-cortex_tests.exe
+ctest --test-dir build -C Debug --output-on-failure
 ```
 
-Or use CTest:
+The test suite covers areas including:
 
-**Bash**
+* Vector operations
+* HNSW insertion and search
+* HNSW removal and update
+* Metadata
+* Persistence
+* Corrupted persistence data
+* Email parsing
+* Email cleaning
+* Email chunking
+* Email ingestion
+* Directory indexing
+* Retrieval
+* Context building
+* Source attribution
+* RAG pipeline
+* Local application orchestration
+
+## Persistence and Re-indexing
+
+The index is persisted to the path configured by:
 
 ```
-ctest --test-dir build
+CORTEX_INDEX_PATH=data/email_index.cortex
 ```
 
-All Phase 1 correctness tests currently pass.
+When the application starts, the existing index is loaded if it exists.
 
-### Benchmarks
+When indexing an email that already exists, Cortex removes the old chunks for that email and inserts the newly processed chunks.
 
-Run:
+The indexing flow performs parsing, cleaning, chunking, and embedding before removing the previous indexed representation. This helps preserve existing data if preprocessing or embedding fails.
 
-**DOS**
+## Current V1 Limitations
+
+V1 intentionally keeps the scope focused.
+
+Current limitations include:
+
+* Email ingestion is currently based on `.eml` files rather than direct Gmail/IMAP synchronization.
+* Email chunking currently uses a fixed character-based chunk size.
+* The CLI is the primary user interface.
+* The LLM is expected to be provided by a local OpenAI-compatible server.
+* The current parser focuses on the supported email headers/body format rather than implementing the full MIME email specification.
+* There is currently no multi-user service/API layer.
+* There is no web frontend in V1.
+
+## V1 Design Goals
+
+Cortex V1 focuses on establishing a reusable, domain-independent vector/RAG core:
 
 ```
-cortex_benchmarks.exe
+Vector Engine
+      +
+HNSW
+      +
+Persistence
+      +
+Embeddings
+      +
+Retrieval
+      +
+RAG
+      +
+Local LLM
 ```
 
-Example benchmark categories include:
-
-* Scalar L2
-* AVX2 L2
-* AVX2 + FMA L2
-* Automatic L2
-* Scalar Dot Product
-* AVX2 Dot Product
-* AVX2 + FMA Dot Product
-* Automatic Dot Product
-* Cosine Similarity
-* Batch L2 Distance
-* Top-K Search
-
-## Design Goals
-
-Cortex is designed around several systems-level principles:
-
-1. **Hardware-aware computation:** Use runtime CPU feature detection to select optimized implementations.
-2. **SIMD-friendly memory:** Use aligned and contiguous floating-point data to improve vectorized processing.
-3. **Separation of computation and dispatch:** The backend abstraction separates:
-   **Plaintext**
-
-   ```
-   What operation?
-         ↓
-   Which implementation?
-         ↓
-   Which CPU instructions?
-   ```
-4. **Benchmark-driven optimization:** Performance changes are evaluated using repeatable microbenchmarks rather than assuming that an optimization is faster.
-5. **Foundation for vector search:** The vector engine is intentionally separated from the future indexing layer.
+Email is the first ingestion domain. The core vector and retrieval components are kept separate from email-specific types so that additional document sources can be added later.
 
 ## Roadmap
 
-### Phase 1 — Vector Engine
+Possible future work includes:
 
-**Status:** Complete
+* Gmail OAuth integration
+* IMAP ingestion
+* MIME attachment handling
+* Improved email/thread reconstruction
+* Better chunking and overlap strategies
+* Batch embedding
+* Advanced HNSW tuning
+* Metadata filtering
+* Incremental synchronization
+* HTTP/API service
+* Web UI
+* Multi-user support
+* More advanced retrieval and reranking
 
-* [X] Vector representation
-* [X] Aligned memory
-* [X] Scalar distance
-* [X] SIMD distance
-* [X] SIMD dot product
-* [X] Cosine similarity
-* [X] Runtime backend selection
-* [X] Batch processing
-* [X] VectorStore
-* [X] Top-K search
-* [X] Correctness tests
-* [X] Performance benchmarks
+## V1 End-to-End Validation
 
-### Phase 2 — ANN Indexing
-
-**Status:** Planned
-
-* [ ] HNSW graph
-* [ ] Graph construction
-* [ ] Nearest-neighbor search
-* [ ] Configurable `M`
-* [ ] `efConstruction`
-* [ ] `efSearch`
-* [ ] Layered graph structure
-* [ ] Search performance benchmarks
-* [ ] Recall@K evaluation
-
-### Phase 3 — Production Optimization
-
-**Status:** Planned
-
-* [ ] Improved memory allocator
-* [ ] Memory pooling
-* [ ] Parallel batch search
-* [ ] Multi-threaded indexing
-* [ ] NUMA-aware optimizations
-* [ ] Advanced cache optimization
-* [ ] AVX-512 backend
-* [ ] More extensive profiling
-
-## Testing Philosophy
-
-The project uses correctness tests alongside performance benchmarks.
-
-The tests cover:
-
-* Vector construction
-* Dimensions
-* Buffer behavior
-* Distance correctness
-* SIMD/scalar equivalence
-* Dot product correctness
-* Cosine similarity
-* Batch processing
-* Invalid dimensions
-* Top-K behavior
-
-The benchmark suite is kept separate from correctness tests so performance experiments do not affect functional verification.
-
-## Technical Highlights
-
-| **Parameter**    | **Specification** |
-| ---------------------- | ----------------------- |
-| **Language**     | C++20                   |
-| **Architecture** | x64                     |
-| **SIMD**         | AVX2                    |
-| **FMA**          | AVX2 FMA                |
-| **Memory**       | 32-byte aligned         |
-| **Build System** | CMake + Ninja           |
-| **Testing**      | GoogleTest              |
-| **Benchmarking** | Google Benchmark        |
-
-## Current Status
-
-**Plaintext**
+The V1 implementation has been validated with a real email flow:
 
 ```
-Cortex Vector Engine
-====================
-
-Phase 1: COMPLETE
-
-Vector operations   ████████████████████ 100%
-SIMD acceleration   ████████████████████ 100%
-Batch processing    ████████████████████ 100%
-Top-K search        ████████████████████ 100%
-Testing             ████████████████████ 100%
-Benchmarking        ████████████████████ 100%
-
-Next:
-HNSW indexing layer
+.eml file
+   ↓
+EmailParser
+   ↓
+EmailCleaner
+   ↓
+EmailChunker
+   ↓
+BGE-small-en-v1.5
+   ↓
+HNSW
+   ↓
+Persistent index
+   ↓
+Application restart
+   ↓
+Index reload
+   ↓
+Semantic retrieval
+   ↓
+ContextBuilder
+   ↓
+Local LLM
+   ↓
+Answer + Source
 ```
+
+A real query for a technical interview email successfully returned the expected answer and the corresponding email/thread source.
 
 ## License
 
-This project is currently under development.
+Cortex is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

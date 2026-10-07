@@ -1,7 +1,7 @@
 #include "app/cortex_app.hpp"
 #include "embedding/bgeEmbedder.hpp"
 #include "llm/local_llm.hpp"
-
+#include "app/enviroment.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -9,22 +9,6 @@
 
 namespace
 {
-
-    std::string getEnvironmentVariable(
-        const char *name)
-    {
-        const char *value = std::getenv(name);
-
-        if (value == nullptr || *value == '\0')
-        {
-            throw std::runtime_error(
-                std::string("Required environment variable is not set: ") +
-                name);
-        }
-
-        return value;
-    }
-
     void printUsage()
     {
         std::cout
@@ -70,14 +54,14 @@ int main(
             printUsage();
             return 1;
         }
+        cortex::app::loadEnvironmentFile(".env");
+        const std::string model_path = cortex::app::getEnvironmentVariable("CORTEX_MODEL_PATH");
 
-        const std::string model_path = getEnvironmentVariable("CORTEX_MODEL_PATH");
+        const std::string vocab_path = cortex::app::getEnvironmentVariable("CORTEX_VOCAB_PATH");
 
-        const std::string vocab_path = getEnvironmentVariable("CORTEX_VOCAB_PATH");
+        const std::string index_path = cortex::app::getEnvironmentVariable("CORTEX_INDEX_PATH");
 
-        const std::string index_path = getEnvironmentVariable("CORTEX_INDEX_PATH");
-
-        const std::string llm_url = getEnvironmentVariable("CORTEX_LLM_URL");
+        const std::string llm_url = cortex::app::getEnvironmentVariable("CORTEX_LLM_URL");
 
         cortex::embedding::BGEEmbedder embedder(model_path, vocab_path);
 
