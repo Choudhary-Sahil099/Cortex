@@ -44,10 +44,9 @@ namespace cortex::persistence {
                 index.M()
                 );
 
-        const std::uint64_t ef_construction =
-            static_cast<std::uint64_t>(
-                index.ef_construction()
-                );
+        const std::uint64_t ef_construction =static_cast<std::uint64_t>(index.ef_construction());
+
+        const std::uint64_t ef_search = static_cast<std::uint64_t>(index.ef_search());
 
         file.write(
             reinterpret_cast<const char*>(&dimension),
@@ -64,6 +63,12 @@ namespace cortex::persistence {
             sizeof(ef_construction)
         );
 
+
+        //elf consttruction
+        file.write(
+            reinterpret_cast<const char*>(&ef_search),
+            sizeof(ef_search)
+        );
 
         //index states
 
@@ -84,18 +89,10 @@ namespace cortex::persistence {
         // serialize the vector values
         const auto& records = index.vector_store().records();
 
-        const std::uint64_t record_count =
-            static_cast<std::uint64_t>(
-                records.size()
-                );
+        const std::uint64_t record_count =static_cast<std::uint64_t>(records.size());
 
         // keepp this above the loop else error is going to occur 
-        file.write(
-            reinterpret_cast<const char*>(&record_count),
-            sizeof(record_count)
-        );
-
-
+        file.write(reinterpret_cast<const char*>(&record_count),sizeof(record_count) );
         for (const auto& record : records) {
 
             const std::uint64_t id =
@@ -286,6 +283,7 @@ namespace cortex::persistence {
         std::uint64_t dimension = 0;
         std::uint64_t M = 0;
         std::uint64_t ef_construction = 0;
+        std::uint64_t ef_search = 0;
 
         file.read(
             reinterpret_cast<char*>(&dimension),
@@ -302,6 +300,10 @@ namespace cortex::persistence {
             sizeof(ef_construction)
         );
 
+        file.read(
+            reinterpret_cast<char*>(&ef_search),
+            sizeof(ef_search)
+        );
         if (!file) {
             throw std::runtime_error(
                 "Failed to read Cortex configuration"
@@ -352,7 +354,8 @@ namespace cortex::persistence {
         index::HNSWIndex index(
             static_cast<std::size_t>(dimension),
             static_cast<std::size_t>(M),
-            static_cast<std::size_t>(ef_construction)
+            static_cast<std::size_t>(ef_construction),
+            static_cast<std::size_t>(ef_search)
         );
         std::uint64_t record_count = 0;
 

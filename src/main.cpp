@@ -1,123 +1,131 @@
+#include "app/cortex_app.hpp"
+#include "embedding/bgeEmbedder.hpp"
+#include "llm/local_llm.hpp"
+
+#include <cstdlib>
 #include <iostream>
-#include <vector>
+#include <stdexcept>
+#include <string>
 
-#include "core/cpu_features.hpp"
-#include "vector/backend.hpp"
-#include "vector/distance.hpp"
-#include "vector/dot_product.hpp"
-#include "vector/similarity.hpp"
-#include "vector/batch_distance.hpp"
-
-int main()
+namespace
 {
-    using namespace cortex::vector;
 
-    constexpr std::size_t dimension = 1536;
-    constexpr std::size_t vector_count = 1000;
-
-    std::cout << "=================================\n";
-    std::cout << "       Cortex Vector Engine\n";
-    std::cout << "=================================\n\n";
-
-    // CPU Features
-
-
-    const auto features =
-        cortex::core::detect_cpu_features();
-
-    std::cout << "CPU Features\n";
-    std::cout << "------------\n";
-    std::cout << "AVX2 : "
-        << (features.avx2 ? "supported" : "not supported")
-        << '\n';
-
-    std::cout << "FMA  : "
-        << (features.fma ? "supported" : "not supported")
-        << "\n\n";
-
-    // Runtime Backend
-
-
-    const auto selected_backend =
-        select_distance_backend();
-
-    std::cout << "Selected Backend\n";
-    std::cout << "----------------\n";
-    std::cout << backend_name(selected_backend)
-        << "\n\n";
-
-    // Create vectors
-    
-
-    Vector a(dimension);
-    Vector b(dimension);
-
-    for (std::size_t i = 0; i < dimension; ++i)
+    std::string getEnvironmentVariable(
+        const char *name)
     {
-        a[i] = static_cast<float>(i) * 0.001f;
-        b[i] = static_cast<float>(i) * 0.002f;
-    }
+        const char *value = std::getenv(name);
 
-    std::cout << "Vector Operations\n";
-    std::cout << "-----------------\n";
-
-    std::cout << "Dimension         : "
-        << dimension << '\n';
-
-    std::cout << "L2 Distance       : "
-        << l2_distance(a, b) << '\n';
-
-    std::cout << "Dot Product       : "
-        << dot_product(a, b) << '\n';
-
-    std::cout << "Cosine Similarity : "
-        << cosine_similarity(a, b) << "\n\n";
-    // Batch Distance
-    
-
-    std::vector<Vector> vectors;
-    vectors.reserve(vector_count);
-
-    for (std::size_t i = 0; i < vector_count; ++i)
-    {
-        Vector v(dimension);
-
-        for (std::size_t j = 0; j < dimension; ++j)
+        if (value == nullptr || *value == '\0')
         {
-            v[j] =
-                static_cast<float>((i + j) % 100) / 100.0f;
+            throw std::runtime_error(
+                std::string("Required environment variable is not set: ") +
+                name);
         }
 
-        vectors.push_back(std::move(v));
+        return value;
     }
 
-    std::vector<float> distances;
-
-    batch_l2_distance(
-        a,
-        vectors,
-        distances
-    );
-
-    std::cout << "Batch Processing\n";
-    std::cout << "----------------\n";
-
-    std::cout << "Vectors           : "
-        << vector_count << '\n';
-
-    std::cout << "Dimensions/vector  : "
-        << dimension << '\n';
-
-    std::cout << "Distances computed: "
-        << distances.size() << '\n';
-
-    if (!distances.empty())
+    void printUsage()
     {
-        std::cout << "First distance    : "
-            << distances.front() << '\n';
+        std::cout
+            << "Cortex - Local Email RAG Engine\n\n"
+            << "Usage:\n"
+            << "  cortex index <email-directory>\n"
+            << "  cortex ask <question>\n"
+            << "  cortex help\n";
     }
 
-    std::cout << "\n=================================\n";
+}
+
+int main(
+    int argc,
+    char *argv[])
+{
+    try
+    {
+        if (argc < 2)
+        {
+            printUsage();
+            return 1;
+        }
+
+        const std::string command = argv[1];
+
+        if (command == "help")
+        {
+            printUsage();
+            return 0;
+        }
+
+        if (command != "index" && command != "ask")
+        {
+            std::cerr << "Unknown command: " << command << "\n\n";
+            printUsage();
+            return 1;
+        }
+
+        if (argc < 3)
+        {
+            std::cerr << "Missing argument for command: " << command << "\n\n";
+            printUsage();
+            return 1;
+        }
+
+        const std::string model_path = getEnvironmentVariable("CORTEX_MODEL_PATH");
+
+        const std::string vocab_path = getEnvironmentVariable("CORTEX_VOCAB_PATH");
+
+        const std::string index_path = getEnvironmentVariable("CORTEX_INDEX_PATH");
+
+        const std::string llm_url = getEnvironmentVariable("CORTEX_LLM_URL");
+
+        cortex::embedding::BGEEmbedder embedder(model_path, vocab_path);
+
+        cortex::llm::LocalLLM llm(llm_url);
+
+        cortex::app::CortexApp app(embedder, llm, index_path);
+
+        if (command == "index")
+        {
+            const std::string directory = argv[2];
+
+            std::cout << "Indexing emails from: " << directory << "\n";
+            app.indexDirectory(directory);
+
+            std::cout << "Indexing complete.\n"<< "Indexed vectors: " << app.indexSize() << "\n";
+            return 0;
+        }
+
+        if (command == "ask")
+        {
+            std::string question = std::string(argv[2]);
+
+            for (int i = 3; i < argc; ++i)
+            {
+                question += " ";
+                question += std::string(argv[i]);
+            }
+
+            std::cout<< "Question: "<< question<< "\n\n";
+
+            const auto result =app.askWithSources(question, 5);
+
+            std::cout << "Answer:\n"<< result.answer << "\n\n";
+
+            std::cout << "Sources:\n";
+
+            for (const auto& source : result.sources)
+            {
+                std::cout<< "- Email: "<< source.email_id<< "\n"<< "  Thread: "<< source.thread_id<< "\n"<< "  Content: "<< source.text<< "\n\n";
+            }
+            return 0;
+        }
+    }
+    catch (const std::exception &error)
+    {
+        std::cerr << "Cortex error: " << error.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }

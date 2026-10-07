@@ -184,3 +184,97 @@ TEST(ContextBuilderTest, SkipsResultsWithMissingText)
 
     EXPECT_TRUE(context.empty());
 }
+
+TEST(ContextBuilderTest, BuildsSourcesFromResults)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk_1";
+    chunk.email_id = "email_1";
+    chunk.thread_id = "thread_1";
+    chunk.text = "Your technical interview is on Monday.";
+    chunk.index = 0;
+
+    chunk.embedding = {
+        1.0f,
+        0.0f,
+        0.0f
+    };
+
+    const auto id = index.add(chunk);
+
+    std::vector<cortex::index::VectorSearchResult> results;
+
+    results.push_back({
+        id,
+        0.1f,
+        &index.get(id)
+    });
+
+    cortex::retrieval::ContextBuilder builder;
+
+    const auto sources =
+        builder.buildSources(results);
+
+    ASSERT_EQ(sources.size(), 1);
+
+    EXPECT_EQ(
+        sources[0].email_id,
+        "email_1"
+    );
+
+    EXPECT_EQ(
+        sources[0].thread_id,
+        "thread_1"
+    );
+
+    EXPECT_EQ(
+        sources[0].text,
+        "Your technical interview is on Monday."
+    );
+}
+
+TEST(ContextBuilderTest, BuildSourcesSkipsResultsWithMissingText)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk_missing_text";
+    chunk.email_id = "email_1";
+    chunk.thread_id = "thread_1";
+    chunk.text = "Temporary text.";
+    chunk.index = 0;
+
+    chunk.embedding = {
+        1.0f,
+        0.0f,
+        0.0f
+    };
+
+    const auto id = index.add(chunk);
+
+    auto& record =
+        const_cast<cortex::core::VectorRecord&>(
+            index.get(id)
+        );
+
+    record.metadata.erase("text");
+
+    std::vector<cortex::index::VectorSearchResult> results;
+
+    results.push_back({
+        id,
+        0.1f,
+        &index.get(id)
+    });
+
+    cortex::retrieval::ContextBuilder builder;
+
+    const auto sources =
+        builder.buildSources(results);
+
+    EXPECT_TRUE(sources.empty());
+}

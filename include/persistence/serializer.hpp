@@ -22,7 +22,7 @@ namespace cortex::persistence {
 
         private:
             static constexpr std::uint64_t MAGIC = 0x434F525445585F31; // hexa marker
-            static constexpr std::uint32_t VERSION = 1;// format teller
+            static constexpr std::uint32_t VERSION = 2;// format teller
     };
 
 }

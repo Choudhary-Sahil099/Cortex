@@ -69,6 +69,7 @@ add_library(cortex_core
 
     #persistence
     src/persistence/serializer.cpp
+    src/persistence/index_manager.cpp
 
 
     #email ingestion
@@ -97,6 +98,10 @@ add_library(cortex_core
 
     #ingestion
     src/ingestion/email_indexer.cpp
+    src/ingestion/email_file_loader.cpp
+
+    #app
+    src/app/cortex_app.cpp
 )
 
 target_include_directories(cortex_core
@@ -238,7 +243,8 @@ add_executable(cortex_tests
     #persistence
     tests/persistence/serializer_test.cpp
 
-
+    # ingestion
+    tests/ingestion/email_file_loader_test.cpp
     #email ingestion
     tests/email/email_document_test.cpp
     tests/email/email_parserer_test.cpp
@@ -264,6 +270,9 @@ add_executable(cortex_tests
 
     #rag
     tests/rag/rag_pipeline_test.cpp
+
+    #app
+    tests/app/cortex_app_test.cpp
 )
 
 target_link_libraries(cortex_tests

@@ -24,3 +24,6 @@ Thumbs.db
 
 #onnx
 models/
+
+#local
+.env

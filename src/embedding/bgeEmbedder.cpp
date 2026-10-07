@@ -17,41 +17,39 @@ namespace cortex::embedding
           tokenizer_(vocab_path),
           dimension_(384)
     {
-        std::cout << "BGE model path: "<< model_path << "\n"; // mpdel path verification
+        // std::cout << "BGE model path: "<< model_path << "\n"; // mpdel path verification
         session_options_.SetIntraOpNumThreads(1);
 
         std::wstring wide_model_path(model_path.begin(), model_path.end());
 
         session_ = std::make_unique<Ort::Session>(env_, wide_model_path.c_str(), session_options_);
         
-        std::cout << "ONNX inputs: "<< session_->GetInputCount() << "\n";
+        // std::cout << "ONNX inputs: "<< session_->GetInputCount() << "\n";
 
         for (std::size_t i = 0; i < session_->GetInputCount(); ++i)
         {
             auto name = session_->GetInputNameAllocated(i,Ort::AllocatorWithDefaultOptions{});
 
-            std::cout << "Input " << i<< ": "<< name.get()<< "\n";
+            // std::cout << "Input " << i<< ": "<< name.get()<< "\n";
         }
 
-        std::cout << "ONNX outputs: "<< session_->GetOutputCount()<< "\n";
+        // std::cout << "ONNX outputs: "<< session_->GetOutputCount()<< "\n";
 
         for (std::size_t i = 0; i < session_->GetOutputCount(); ++i)
         {
-            auto name = session_->GetOutputNameAllocated(
-                i,
-                Ort::AllocatorWithDefaultOptions{});
+            auto name = session_->GetOutputNameAllocated(i,Ort::AllocatorWithDefaultOptions{});
 
-            std::cout << "Output " << i<< ": "<<name.get()<< "\n";
+            // std::cout << "Output " << i<< ": "<<name.get()<< "\n";
         }
 
         auto providers = Ort::GetAvailableProviders();
 
-        std::cout << "Available execution providers:\n";
+        // std::cout << "Available execution providers:\n";
 
-        for (const auto &provider : providers)
-        {
-            std::cout << "  " << provider << "\n";
-        }
+        // for (const auto &provider : providers)
+        // {
+        //     std::cout << "  " << provider << "\n";
+        // }
     }
 
     std::size_t BGEEmbedder::dimension() const
@@ -90,20 +88,19 @@ namespace cortex::embedding
     std::vector<float> BGEEmbedder::embed(const std::string &text) const
     {
 
-        std::cout << "BGE: starting embed()\n";
+        // std::cout << "BGE: starting embed()\n";
 
         TokenizedInput tokens = tokenizer_.encode(text);
 
-        std::cout << "BGE: tokenization complete\n";
+        // std::cout << "BGE: tokenization complete\n";
 
         const std::size_t sequence_length = tokens.input_ids.size();
 
-        std::cout << "BGE: sequence length = " << sequence_length << "\n";
+        // std::cout << "BGE: sequence length = " << sequence_length << "\n";
 
         if (sequence_length == 0)
         {
-            throw std::runtime_error(
-                "Tokenizer produced an empty sequence");
+            throw std::runtime_error("Tokenizer produced an empty sequence");
         }
 
         if (tokens.attention_mask.size() != sequence_length || tokens.token_type_ids.size() != sequence_length)
@@ -140,33 +137,33 @@ namespace cortex::embedding
             input_shape.data(),
             input_shape.size());
 
-        std::cout << "input_ids: ";
+        // std::cout << "input_ids: ";
 
-        for (const auto id : tokens.input_ids)
-        {
-            std::cout << id << " ";
-        }
+        // for (const auto id : tokens.input_ids)
+        // {
+        //     std::cout << id << " ";
+        // }
 
-        std::cout << "\n";
+        // std::cout << "\n";
 
-        std::cout << "attention_mask: ";
+        // std::cout << "attention_mask: ";
 
-        for (const auto value : tokens.attention_mask)
-        {
-            std::cout << value << " ";
-        }
+        // for (const auto value : tokens.attention_mask)
+        // {
+        //     std::cout << value << " ";
+        // }
 
-        std::cout << "\n";
+        // std::cout << "\n";
 
-        std::cout << "token_type_ids: ";
+        // std::cout << "token_type_ids: ";
 
-        for (const auto value : tokens.token_type_ids)
-        {
-            std::cout << value << " ";
-        }
+        // for (const auto value : tokens.token_type_ids)
+        // {
+        //     std::cout << value << " ";
+        // }
 
-        std::cout << "\n";
-        std::cout << "BGE: tensors created\n";
+        // std::cout << "\n";
+        // std::cout << "BGE: tensors created\n";
 
         const char *input_names[] = {
             "input_ids",
@@ -180,7 +177,7 @@ namespace cortex::embedding
 
         const char *output_names[] = {"last_hidden_state"};
 
-        std::cout << "BGE: calling ONNX Run()\n";
+        // std::cout << "BGE: calling ONNX Run()\n";
 
         auto outputs = session_->Run(
             Ort::RunOptions{nullptr},
@@ -190,7 +187,7 @@ namespace cortex::embedding
             output_names,
             1);
 
-        std::cout << "BGE: ONNX Run() completed\n";
+        // std::cout << "BGE: ONNX Run() completed\n";
 
         if (outputs.size() != 1)
         {
@@ -208,13 +205,13 @@ namespace cortex::embedding
 
         const auto shape = type_info.GetShape();
 
-        std::cout << "BGE: output shape = ";
-        for (const auto value : shape)
-        {
-            std::cout << value << " ";
-        }
+        // std::cout << "BGE: output shape = ";
+        // for (const auto value : shape)
+        // {
+        //     std::cout << value << " ";
+        // }
 
-        std::cout << "\n";
+        // std::cout << "\n";
 
         if (shape.size() != 3 || shape[0] != 1 || shape[1] != static_cast<int64_t>(sequence_length) || shape[2] != static_cast<int64_t>(dimension_))
         {
@@ -233,26 +230,26 @@ namespace cortex::embedding
             raw_squared_norm += value * value;
         }
 
-        std::cout
-            << "Raw CLS norm = "
-            << std::sqrt(raw_squared_norm)
-            << "\n";
+        // std::cout
+        //     << "Raw CLS norm = "
+        //     << std::sqrt(raw_squared_norm)
+        //     << "\n";
 
-        std::cout << "Raw CLS first 10:\n";
+        // std::cout << "Raw CLS first 10:\n";
 
-        for (std::size_t i = 0; i < 10; ++i)
-        {
-            std::cout << embedding[i] << "\n";
-        }
+        // for (std::size_t i = 0; i < 10; ++i)
+        // {
+        //     std::cout << embedding[i] << "\n";
+        // }
 
         auto normalized = normalize(std::move(embedding));
 
-        std::cout << "Normalized first 10:\n";
+        // std::cout << "Normalized first 10:\n";
 
-        for (std::size_t i = 0; i < 10; ++i)
-        {
-            std::cout << normalized[i] << "\n";
-        }
+        // for (std::size_t i = 0; i < 10; ++i)
+        // {
+        //     std::cout << normalized[i] << "\n";
+        // }
 
         return normalized;
     }

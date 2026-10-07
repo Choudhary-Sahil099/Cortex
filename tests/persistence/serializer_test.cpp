@@ -1,5 +1,6 @@
 #include "core/vector_store.hpp"
 #include "persistence/serializer.hpp"
+#include "persistence/index_manager.hpp"
 
 #include "embedding/embedding_pipeline.hpp"
 #include "embedding/bgeEmbedder.hpp"
@@ -236,7 +237,10 @@ namespace {
             loaded.vector_store().records().size(),
             index.vector_store().records().size()
         );
-
+        EXPECT_EQ(
+            loaded.ef_search(),
+            index.ef_search()
+        );
         for (const auto& record : index.vector_store().records()) {
             const auto& restored =
                 loaded.vector_store().get(record.id);
@@ -573,12 +577,12 @@ namespace {
             std::ofstream file(path, std::ios::binary);
 
             const std::uint64_t magic = 0x434F525445585F31;
-            const std::uint32_t version = 1;
-
+            const std::uint32_t version = 2;
+            
             const std::uint64_t dimension = 4;
             const std::uint64_t M = 4;
             const std::uint64_t ef_construction = 50;
-
+            const std::uint64_t ef_search = 20;
             const std::uint64_t next_id = 1;
             const std::uint64_t entry_point = 0;
             const std::uint64_t max_level = 0;
@@ -625,6 +629,11 @@ namespace {
             file.write(
                 reinterpret_cast<const char*>(&ef_construction),
                 sizeof(ef_construction)
+            );
+
+            file.write(
+                reinterpret_cast<const char*>(&ef_search),
+                sizeof(ef_search)
             );
 
             file.write(
@@ -812,4 +821,127 @@ TEST(PersistenceIntegrationTest, EmailCanBeRetrievedAfterReload)
 
 
     std::filesystem::remove(persistence_path);
+}
+
+TEST(IndexManagerTest, CreatesIndexWhenFileDoesNotExist)
+{
+    const std::string path = "test_index_manager_create.cortex";
+
+    std::remove(path.c_str());
+
+    cortex::persistence::IndexManager manager(path);
+
+    auto index =
+        manager.loadOrCreate(4);
+
+    EXPECT_EQ(index.dimension(), 4);
+    EXPECT_EQ(index.size(), 0);
+
+    std::remove(path.c_str());
+}
+
+TEST(IndexManagerTest, SavesAndLoadsExistingIndex)
+{
+    const std::string path =
+        "test_index_manager_load.cortex";
+
+    std::remove(path.c_str());
+
+    cortex::persistence::IndexManager manager(path);
+
+    auto index =
+        manager.loadOrCreate(4);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk-001";
+    chunk.email_id = "email-001";
+    chunk.thread_id = "thread-001";
+    chunk.text = "Technical interview is Monday.";
+    chunk.embedding = {
+        1.0f,
+        2.0f,
+        3.0f,
+        4.0f
+    };
+    chunk.index = 0;
+
+    const std::size_t id =
+        index.add(chunk);
+
+    ASSERT_EQ(index.size(), 1);
+
+    manager.save(index);
+
+    ASSERT_TRUE(
+        std::filesystem::exists(path)
+    );
+
+    auto loaded =
+        manager.loadOrCreate(4);
+
+    ASSERT_EQ(loaded.size(), 1);
+
+    const auto& record =
+        loaded.get(id);
+
+    EXPECT_EQ(record.id, id);
+    EXPECT_EQ(
+        record.metadata.at("email_id"),
+        "email-001"
+    );
+
+    EXPECT_EQ(
+        record.metadata.at("text"),
+        "Technical interview is Monday."
+    );
+
+    std::remove(path.c_str());
+}
+
+TEST(IndexManagerTest, RejectsDimensionMismatch)
+{
+    const std::string path =
+        "test_index_manager_dimension.cortex";
+
+    std::remove(path.c_str());
+
+    cortex::persistence::IndexManager manager(path);
+
+    auto index =
+        manager.loadOrCreate(4);
+
+    manager.save(index);
+
+    EXPECT_THROW(
+        manager.loadOrCreate(8),
+        std::invalid_argument
+    );
+
+    std::remove(path.c_str());
+}
+
+TEST(IndexManagerTest, RejectsCorruptedIndex)
+{
+    const std::string path =
+        "test_index_manager_corrupted.cortex";
+
+    std::remove(path.c_str());
+
+    {
+        std::ofstream file(path, std::ios::binary);
+
+        ASSERT_TRUE(file.is_open());
+
+        file << "corrupted data";
+    }
+
+    cortex::persistence::IndexManager manager(path);
+
+    EXPECT_THROW(
+        manager.loadOrCreate(4),
+        std::runtime_error
+    );
+
+    std::remove(path.c_str());
 }

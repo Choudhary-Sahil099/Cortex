@@ -87,3 +87,70 @@ TEST(RAGPipelineTest, GeneratesAnswerFromRetrievedContext)
         "The technical interview is on Monday."
     );
 }
+
+TEST(RAGPipelineTest, AskWithSourcesReturnsAnswerAndSources)
+{
+    cortex::index::VectorIndex index(3);
+
+    cortex::embedding::EmbeddedChunk chunk;
+
+    chunk.id = "chunk_1";
+    chunk.email_id = "email_001";
+    chunk.thread_id = "thread_001";
+    chunk.text =
+        "Your technical interview is scheduled for Monday at 10:00 AM.";
+    chunk.index = 0;
+
+    chunk.embedding = {
+        1.0f,
+        0.0f,
+        0.0f
+    };
+
+    const auto id = index.add(chunk);
+
+    TestEmbedder embedder;
+
+    cortex::retrieval::Retriever retriever(
+        embedder,
+        index
+    );
+
+    cortex::retrieval::ContextBuilder context_builder;
+
+    RAGTestLLM llm;
+
+    cortex::rag::RAGPipeline pipeline(
+        retriever,
+        context_builder,
+        llm
+    );
+
+    const auto result =
+        pipeline.askWithSources(
+            "When is my technical interview?",
+            1
+        );
+
+    EXPECT_EQ(
+        result.answer,
+        "The technical interview is on Monday."
+    );
+
+    ASSERT_EQ(result.sources.size(), 1);
+
+    EXPECT_EQ(
+        result.sources[0].email_id,
+        "email_001"
+    );
+
+    EXPECT_EQ(
+        result.sources[0].thread_id,
+        "thread_001"
+    );
+
+    EXPECT_EQ(
+        result.sources[0].text,
+        "Your technical interview is scheduled for Monday at 10:00 AM."
+    );
+}

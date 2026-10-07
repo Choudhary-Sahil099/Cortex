@@ -3,7 +3,7 @@
 #include "llm/llm.hpp"
 #include "retrival/context_builder.hpp"
 #include "retrival/retriever.hpp"
-
+#include "rag/rag_result.hpp"
 #include <string>
 
 namespace cortex::rag {
@@ -17,6 +17,11 @@ namespace cortex::rag {
             );
 
             std::string ask(
+                const std::string& question,
+                std::size_t k
+            ) const;
+
+            RAGResult askWithSources(
                 const std::string& question,
                 std::size_t k
             ) const;
