@@ -22,42 +22,43 @@
 
 #include <cstddef>
 #include <string>
-
+#include <vector>
 namespace cortex::app
 {
 
-class CortexApp
-{
-public:
-    CortexApp(const embedding::Embedder& embedder,const llm::LLM& llm,std::string index_path,std::size_t chunk_size = 500);
+    class CortexApp
+    {
+    public:
+        CortexApp(const embedding::Embedder &embedder, const llm::LLM &llm, std::string index_path, std::size_t chunk_size = 500);
 
-    void indexEmail(const std::string& raw_email);
+        void indexEmail(const std::string &raw_email);
 
-    std::string ask(const std::string& question,std::size_t k = 5) const;
-    rag::RAGResult askWithSources(const std::string& question,std::size_t k = 5) const;
-    void indexDirectory(const std::string& directory);
-    std::size_t indexSize() const;
+        std::string ask(const std::string &question, std::size_t k = 5) const;
+        rag::RAGResult askWithSources(const std::string &question, std::size_t k = 5) const;
+        void indexDirectory(const std::string &directory);
+        std::size_t indexSize() const;
+        std::vector<index::VectorSearchResult> search(const std::string& query,std::size_t k = 5) const;
+        
+    private:
+        const embedding::Embedder &embedder_;
+        const llm::LLM &llm_;
 
-private:
-    const embedding::Embedder& embedder_;
-    const llm::LLM& llm_;
+        email::EmailParser parser_;
+        email::EmailCleaner cleaner_;
+        email::EmailChunker chunker_;
 
-    email::EmailParser parser_;
-    email::EmailCleaner cleaner_;
-    email::EmailChunker chunker_;
+        embedding::EmbeddingPipeline embedding_pipeline_;
 
-    embedding::EmbeddingPipeline embedding_pipeline_;
+        persistence::IndexManager index_manager_;
+        index::VectorIndex index_;
 
-    persistence::IndexManager index_manager_;
-    index::VectorIndex index_;
-    
-    ingestion::EmailFileLoader file_loader_;
-    ingestion::EmailIndexer email_indexer_;
+        ingestion::EmailFileLoader file_loader_;
+        ingestion::EmailIndexer email_indexer_;
 
-    retrieval::Retriever retriever_;
-    retrieval::ContextBuilder context_builder_;
+        retrieval::Retriever retriever_;
+        retrieval::ContextBuilder context_builder_;
 
-    rag::RAGPipeline rag_pipeline_;
-};
+        rag::RAGPipeline rag_pipeline_;
+    };
 
 }

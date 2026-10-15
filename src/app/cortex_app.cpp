@@ -64,4 +64,7 @@ namespace cortex::app
         }
         index_manager_.save(index_);
     }
+    std::vector<index::VectorSearchResult> CortexApp::search(const std::string& query,std::size_t k) const{
+        return retriever_.search(query, k);
+    }
 }

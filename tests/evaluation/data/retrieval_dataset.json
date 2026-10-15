@@ -1,0 +1,13 @@
+
+{
+  "queries": [
+    {
+      "query": "When is my technical interview?",
+      "relevant_chunk_ids": ["email-001_0"]
+    },
+    {
+      "query": "What time is the interview scheduled?",
+      "relevant_chunk_ids": ["email-001_0"]
+    }
+  ]
+}

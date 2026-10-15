@@ -103,6 +103,9 @@ add_library(cortex_core
     #app
     src/app/cortex_app.cpp
     src/app/enviroment.cpp
+
+    #evaluation
+    src/evaluation/retrival_metric.cpp
 )
 
 target_include_directories(cortex_core
@@ -274,6 +277,9 @@ add_executable(cortex_tests
 
     #app
     tests/app/cortex_app_test.cpp
+
+    #evaluation
+    tests/evaluation/retrival_metric_test.cpp
 )
 
 target_link_libraries(cortex_tests
