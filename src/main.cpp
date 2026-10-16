@@ -256,8 +256,22 @@ int main(
 
         if (command == "inspect")
         {
+            if (argc < 3)
+            {
+                std::cerr << "Usage: cortex inspect <query>\n";
+                return 1;
+            }
+
+            std::string query = argv[2];
+
+            for (int i = 3; i < argc; ++i)
+            {
+                query += " ";
+                query += argv[i];
+            }
+
             const auto results = app.search(
-                "technical interview",
+                query,
                 app.indexSize() > 0 ? app.indexSize() : 1);
 
             for (const auto &result : results)

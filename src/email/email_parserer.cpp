@@ -80,7 +80,7 @@ namespace cortex::email {
 
 				value = trim(value); // used trim instead of the harcoded method
 
-				if (key == "ID") document.id = value;
+				if (key == "ID" || key == "Message-ID") document.id = value;
 				else if (key == "From") document.sender = value;
 				else if (key == "To") document.recipients = parseRecipients(value);
 				else if (key == "Subject") document.subject = value;

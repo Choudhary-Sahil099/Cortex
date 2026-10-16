@@ -1,5 +1,5 @@
-#include "retrival/retriever.hpp" // sorryb for the spelling mistake
-
+#include "retrival/retriever.hpp" //AFter the version 2 spelling mistakes will be corrected
+#include "retrival/query_transformer.hpp"
 #include <stdexcept>
 
 
@@ -26,7 +26,9 @@ namespace cortex::retrieval {
             );
         }
 
-        const std::vector<float> query_embedding = embedder_.embed(query);
+        const std::string transformed_query = QueryTransformer::transform(query);
+
+        const std::vector<float> query_embedding = embedder_.embed(transformed_query);
 
         return index_.search(query_embedding,k);
     }
@@ -54,9 +56,8 @@ namespace cortex::retrieval {
             );
         }
 
-        const std::vector<float> query_embedding =
-            embedder_.embed(query);
-
+        const std::string transformed_query = QueryTransformer::transform(query);
+        const std::vector<float> query_embedding = embedder_.embed(transformed_query);
         const auto candidates =
             index_.search(
                 query_embedding,

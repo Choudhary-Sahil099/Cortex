@@ -1,0 +1,13 @@
+ID: email-003
+Thread-ID: thread-003
+From: reviewer@example.com
+To: sahil@example.com
+Subject: Code Review Discussion
+Date: Tue, 13 Oct 2026 12:00:00 +0530
+
+Hi Sahil,
+
+Let's discuss your recent pull request during our code review meeting on Tuesday at 4:00 PM. Please prepare a short explanation of your implementation and the tests you added.
+
+Regards,
+Software Engineer

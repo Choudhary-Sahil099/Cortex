@@ -89,7 +89,7 @@ add_library(cortex_core
     #RETRIVAL
     src/retrieval/retrievel.cpp
     src/retrieval/context_builder.cpp
-
+    src/retrieval/query_transformer.cpp
     #rag
     src/rag/rag_pipeline.cpp
 
@@ -268,6 +268,7 @@ add_executable(cortex_tests
 
     #retireval tests
     tests/retrieval/context_builder_test.cpp
+    tests/retrieval/query_transformer_test.cpp
 
     #llm
     tests/llm/llm_test.cpp
@@ -400,3 +401,7 @@ if(MSVC)
             "${CMAKE_CURRENT_BINARY_DIR}/distance.asm"
     )
 endif()
+#  llama-cli --version 
+# winget install llama.cpp   
+# where.exe llama-server
+# where.exe llama-cli

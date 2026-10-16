@@ -372,7 +372,8 @@ emails/
 Then run:
 
 ```
-.uild\Debug\cortex.exe index .\emails
+.build\Debug\cortex.exe index .\emails
+
 ```
 
 Cortex parses, cleans, chunks, embeds, and indexes the emails, then persists the resulting HNSW index.
