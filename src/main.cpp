@@ -168,21 +168,21 @@ int main(
         if (command == "evaluate")
         {
             const auto dataset = loadEvaluationDataset(argv[2]);
-
             constexpr std::size_t k = 5;
 
-            double total_recall = 0.0;
-            double total_rr = 0.0;
-            double total_ndcg = 0.0;
-
-            std::cout << "Cortex Retrieval Evaluation\n";
-            std::cout << "Queries: " << dataset.size() << "\n";
-            std::cout << "K: " << k << "\n\n";
-
-            for (const auto &item : dataset)
+            struct Metrics
             {
-                const auto results = app.search(item.query, k);
+                double recall = 0.0;
+                double rr = 0.0;
+                double ndcg = 0.0;
+            };
 
+            Metrics semantic_total;
+            Metrics hybrid_total;
+
+            const auto evaluate_results = [&](const auto &results,
+                                              const EvaluationQuery &item)
+            {
                 std::vector<std::string> ranked_ids;
                 ranked_ids.reserve(results.size());
 
@@ -193,9 +193,7 @@ int main(
                         continue;
                     }
 
-                    const auto it =
-                        result.record->metadata.find("chunk_id");
-
+                    const auto it = result.record->metadata.find("chunk_id");
                     if (it != result.record->metadata.end())
                     {
                         ranked_ids.push_back(it->second);
@@ -203,57 +201,105 @@ int main(
                 }
 
                 std::unordered_map<std::string, double> relevance;
-
                 for (const auto &id : item.relevant_chunk_ids)
                 {
                     relevance.emplace(id, 1.0);
                 }
 
-                const double recall =
+                Metrics metrics;
+                metrics.recall =
                     cortex::evaluation::RetrievalMetrics::recallAtK(
-                        ranked_ids,
-                        item.relevant_chunk_ids,
-                        k);
-
-                const double rr =
+                        ranked_ids, item.relevant_chunk_ids, k);
+                metrics.rr =
                     cortex::evaluation::RetrievalMetrics::reciprocalRank(
-                        ranked_ids,
-                        item.relevant_chunk_ids);
-
-                const double ndcg =
+                        ranked_ids, item.relevant_chunk_ids);
+                metrics.ndcg =
                     cortex::evaluation::RetrievalMetrics::ndcgAtK(
-                        ranked_ids,
-                        relevance,
-                        k);
+                        ranked_ids, relevance, k);
 
-                total_recall += recall;
-                total_rr += rr;
-                total_ndcg += ndcg;
+                return std::pair{metrics, ranked_ids};
+            };
+
+            std::cout << "Cortex Retrieval Comparison\n"
+                      << "Queries: " << dataset.size() << "\n"
+                      << "K: " << k << "\n\n";
+
+            for (const auto &item : dataset)
+            {
+                const auto semantic_results = app.search(item.query, k);
+                const auto hybrid_results = app.hybridSearch(item.query, k);
+
+                const auto [semantic, semantic_ids] =
+                    evaluate_results(semantic_results, item);
+                const auto [hybrid, hybrid_ids] =
+                    evaluate_results(hybrid_results, item);
+
+                semantic_total.recall += semantic.recall;
+                semantic_total.rr += semantic.rr;
+                semantic_total.ndcg += semantic.ndcg;
+
+                hybrid_total.recall += hybrid.recall;
+                hybrid_total.rr += hybrid.rr;
+                hybrid_total.ndcg += hybrid.ndcg;
 
                 std::cout << "Query: " << item.query << "\n";
-                std::cout << "Retrieved chunks: ";
 
-                for (const auto &id : ranked_ids)
+                std::cout << "  Semantic-only: ";
+                for (const auto &id : semantic_ids)
                 {
                     std::cout << id << " ";
                 }
+                std::cout << "\n"
+                          << "    Recall@5: " << semantic.recall
+                          << ", RR: " << semantic.rr
+                          << ", nDCG@5: " << semantic.ndcg << "\n";
 
-                std::cout << "\n";
-                std::cout << "Recall@5: " << recall << "\n";
-                std::cout << "Reciprocal rank: " << rr << "\n";
-                std::cout << "nDCG@5: " << ndcg << "\n\n";
+                std::cout << "  Hybrid:        ";
+                for (const auto &id : hybrid_ids)
+                {
+                    std::cout << id << " ";
+                }
+                std::cout << "\n"
+                          << "    Recall@5: " << hybrid.recall
+                          << ", RR: " << hybrid.rr
+                          << ", nDCG@5: " << hybrid.ndcg << "\n\n";
             }
 
             const double count = static_cast<double>(dataset.size());
 
-            std::cout << "=== Aggregate Results ===\n";
-            std::cout << "Mean Recall@5: " << total_recall / count << "\n";
-            std::cout << "MRR: " << total_rr / count << "\n";
-            std::cout << "Mean nDCG@5: " << total_ndcg / count << "\n";
+            const double semantic_recall = semantic_total.recall / count;
+            const double hybrid_recall = hybrid_total.recall / count;
+
+            std::cout << "=== Aggregate Results ===\n"
+                      << "Semantic-only Mean Recall@5: "
+                      << semantic_recall << "\n"
+                      << "Hybrid Mean Recall@5:        "
+                      << hybrid_recall << "\n"
+                      << "Semantic-only MRR:            "
+                      << semantic_total.rr / count << "\n"
+                      << "Hybrid MRR:                   "
+                      << hybrid_total.rr / count << "\n"
+                      << "Semantic-only Mean nDCG@5:    "
+                      << semantic_total.ndcg / count << "\n"
+                      << "Hybrid Mean nDCG@5:           "
+                      << hybrid_total.ndcg / count << "\n";
+
+            if (semantic_recall > 0.0)
+            {
+                std::cout << "Relative Recall@5 improvement: "
+                          << ((hybrid_recall - semantic_recall) / semantic_recall) * 100.0
+                          << "%\n";
+            }
+            else
+            {
+                std::cout << "Relative Recall@5 improvement: undefined "
+                             "(semantic-only Recall@5 is zero)\n";
+            }
 
             return 0;
         }
 
+        
         if (command == "inspect")
         {
             if (argc < 3)
@@ -270,45 +316,66 @@ int main(
                 query += argv[i];
             }
 
-            const auto results = app.search(
-                query,
-                app.indexSize() > 0 ? app.indexSize() : 1);
+            const std::size_t k =
+                app.indexSize() > 0 ? app.indexSize() : 1;
 
-            for (const auto &result : results)
+            const auto print_results =
+                [](const std::string &title,
+                   const auto &results)
             {
-                if (result.record == nullptr)
+                std::cout << "\n=== " << title << " ===\n";
+
+                std::size_t rank = 1;
+
+                for (const auto &result : results)
                 {
-                    continue;
+                    if (result.record == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const auto &metadata = result.record->metadata;
+
+                    const auto chunk_it = metadata.find("chunk_id");
+                    const auto email_it = metadata.find("email_id");
+                    const auto text_it = metadata.find("text");
+
+                    std::cout << "Rank: " << rank++ << '\n';
+                    std::cout << "Vector ID: " << result.id << '\n';
+
+                    if (chunk_it != metadata.end())
+                    {
+                        std::cout << "Chunk ID: "
+                                  << chunk_it->second << '\n';
+                    }
+
+                    if (email_it != metadata.end())
+                    {
+                        std::cout << "Email ID: "
+                                  << email_it->second << '\n';
+                    }
+
+                    std::cout << "Distance/score: "
+                              << result.distance << '\n';
+
+                    if (text_it != metadata.end())
+                    {
+                        std::cout << "Text: " << text_it->second << '\n';
+                    }
+
+                    std::cout << "-----------------------------\n";
                 }
+            };
 
-                const auto &metadata = result.record->metadata;
+            const auto semantic_results = app.search(query, k);
+            const auto hybrid_results = app.hybridSearch(query, k);
 
-                const auto chunk_it = metadata.find("chunk_id");
-                const auto email_it = metadata.find("email_id");
-                const auto text_it = metadata.find("text");
-
-                std::cout << "Vector ID: " << result.id << '\n';
-
-                if (chunk_it != metadata.end())
-                {
-                    std::cout << "Chunk ID: " << chunk_it->second << '\n';
-                }
-
-                if (email_it != metadata.end())
-                {
-                    std::cout << "Email ID: " << email_it->second << '\n';
-                }
-
-                if (text_it != metadata.end())
-                {
-                    std::cout << "Text: " << text_it->second << '\n';
-                }
-
-                std::cout << "-----------------------------\n";
-            }
+            print_results("SEMANTIC-ONLY RESULTS", semantic_results);
+            print_results("HYBRID RESULTS", hybrid_results);
 
             return 0;
         }
+
 
         if (command == "index")
         {

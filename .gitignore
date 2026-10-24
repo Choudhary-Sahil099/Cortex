@@ -27,3 +27,6 @@ models/
 
 #local
 .env
+emails_mixed_50/
+data/
+.env.backup_50emails

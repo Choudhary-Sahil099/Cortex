@@ -23,12 +23,12 @@ public:
         const std::string& query,
         std::size_t k
     ) const;
+    
     // relievence filtering
-    std::vector<index::VectorSearchResult> search(
-        const std::string& query,
-        std::size_t k,
-        float max_distance
-    ) const;
+    std::vector<index::VectorSearchResult> search(const std::string& query,std::size_t k,float max_distance) const;
+
+    //hybrid search
+    std::vector<index::VectorSearchResult> hybridSearch(const std::string& query,std::size_t k) const;
 
 private:
     const embedding::Embedder& embedder_;

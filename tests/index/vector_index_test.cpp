@@ -390,3 +390,92 @@ TEST(EmailIndexerTest, KeepsExistingEmailWhenEmbeddingFails)
         original_size
     );
 }
+
+
+TEST(VectorIndexTest, LexicalSearchReturnsMatchingChunk)
+{
+    VectorIndex index(3);
+
+    EmbeddedChunk chunk;
+    chunk.id = "chunk_interview";
+    chunk.email_id = "email_interview";
+    chunk.thread_id = "thread_interview";
+    chunk.text = "Your technical interview is scheduled for Monday.";
+    chunk.index = 0;
+    chunk.embedding = {1.0f, 0.0f, 0.0f};
+
+    const std::size_t id = index.add(chunk);
+
+    const auto results = index.lexicalSearch("technical interview", 5);
+
+    ASSERT_EQ(results.size(), 1);
+    EXPECT_EQ(results[0].id, id);
+    EXPECT_EQ(
+        results[0].record->metadata.at("chunk_id"),
+        "chunk_interview"
+    );
+}
+
+TEST(VectorIndexTest, LexicalSearchRanksMoreMatchingTermsFirst)
+{
+    VectorIndex index(3);
+
+    EmbeddedChunk first;
+    first.id = "chunk_one";
+    first.email_id = "email_one";
+    first.thread_id = "thread_one";
+    first.text = "Your technical interview is scheduled for Monday.";
+    first.index = 0;
+    first.embedding = {1.0f, 0.0f, 0.0f};
+
+    EmbeddedChunk second;
+    second.id = "chunk_two";
+    second.email_id = "email_two";
+    second.thread_id = "thread_two";
+    second.text = "The interview is scheduled for Monday.";
+    second.index = 0;
+    second.embedding = {0.0f, 1.0f, 0.0f};
+
+    index.add(first);
+    index.add(second);
+
+    const auto results = index.lexicalSearch("technical interview", 2);
+
+    ASSERT_EQ(results.size(), 2);
+    EXPECT_EQ(results[0].record->metadata.at("chunk_id"), "chunk_one");
+    EXPECT_EQ(results[1].record->metadata.at("chunk_id"), "chunk_two");
+}
+
+TEST(VectorIndexTest, LexicalSearchReturnsEmptyWhenNoTermsMatch)
+{
+    VectorIndex index(3);
+
+    EmbeddedChunk chunk;
+    chunk.id = "chunk_meeting";
+    chunk.email_id = "email_meeting";
+    chunk.thread_id = "thread_meeting";
+    chunk.text = "The quarterly project meeting is on Friday.";
+    chunk.index = 0;
+    chunk.embedding = {1.0f, 0.0f, 0.0f};
+
+    index.add(chunk);
+
+    const auto results = index.lexicalSearch("database assignment", 5);
+
+    EXPECT_TRUE(results.empty());
+}
+
+TEST(VectorIndexTest, LexicalSearchRejectsInvalidArguments)
+{
+    VectorIndex index(3);
+
+    EXPECT_THROW(
+        index.lexicalSearch("", 5),
+        std::invalid_argument
+    );
+
+    EXPECT_THROW(
+        index.lexicalSearch("interview", 0),
+        std::invalid_argument
+    );
+}
