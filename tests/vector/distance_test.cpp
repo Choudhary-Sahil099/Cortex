@@ -4,9 +4,12 @@
 #include "vector/similarity.hpp"
 #include "vector/batch_distance.hpp"
 #include "vector/dot_product.hpp"
+#include "core/cpu_features.hpp"
 #include <stdexcept>
 #include <cmath>
 #include <random>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 
@@ -21,6 +24,7 @@ using cortex::vector::dot_product_avx2;
 using cortex::vector::dot_product_avx2_fma;
 using cortex::vector::cosine_similarity;
 using cortex::vector::batch_l2_distance;
+using cortex::core::detect_cpu_features;
 
 static Vector create_vector(std::size_t dimension, float multiplier)
 {
@@ -190,22 +194,18 @@ TEST(L2DistanceTest, MismatchedDimensionsThrow)
     );
 }
 
-TEST(L2DistanceTest, AutomaticMatchesSelectedBackend)
+TEST(L2DistanceTest, AutomaticMatchesScalarReference)
 {
     Vector a = create_vector(1536, 0.1f);
     Vector b = create_vector(1536, 0.2f);
 
-    const float automatic =
-        l2_distance(a, b);
+    const float scalar = l2_distance_scalar(a, b);
+    const float automatic = l2_distance(a, b);
 
-    const float fma =
-        l2_distance_avx2_fma(a, b);
+    const float tolerance =
+        std::max(1e-4f, std::abs(scalar) * 1e-6f);
 
-    EXPECT_NEAR(
-        automatic,
-        fma,
-        1e-2f
-    );
+    EXPECT_NEAR(automatic, scalar, tolerance);
 }
 
 TEST(DotProductTest, ScalarCorrectness)
@@ -378,68 +378,57 @@ TEST(CosineSimilarityTest, ZeroVectorThrows)
 }
 
 // this is the test for RandomizedBackendsMatch for L2Distance
+
 TEST(L2DistanceTest, RandomizedBackendsMatch)
 {
     std::mt19937 generator(12345);
+    const auto features = cortex::core::detect_cpu_features();
 
     const std::size_t dimensions[] = {
-        1,
-        7,
-        8,
-        9,
-        15,
-        16,
-        17,
-        31,
-        32,
-        33,
-        64,
-        127,
-        128,
-        129,
-        384,
-        768,
-        1024,
-        1536,
-        1537,
-        1539,
-        2048,
-        3072
+        1, 7, 8, 9, 15, 16, 17, 31, 32, 33,
+        64, 127, 128, 129, 384, 768, 1024,
+        1536, 1537, 1539, 2048, 3072
     };
 
     for (const std::size_t dimension : dimensions)
     {
         for (int iteration = 0; iteration < 20; ++iteration)
         {
-            Vector a =
-                create_random_vector(dimension, generator);
+            SCOPED_TRACE(
+                "dimension = " + std::to_string(dimension) +
+                ", iteration = " + std::to_string(iteration)
+            );
 
-            Vector b =
-                create_random_vector(dimension, generator);
+            Vector a = create_random_vector(dimension, generator);
+            Vector b = create_random_vector(dimension, generator);
 
-            const float scalar =
-                l2_distance_scalar(a, b);
+            const float scalar = l2_distance_scalar(a, b);
+            const float automatic = l2_distance(a, b);
 
-            const float avx2 =
-                l2_distance_avx2(a, b);
+            // Automatic dispatch should agree with the scalar reference.
+            EXPECT_NEAR(automatic, scalar, 1e-3f)
+                << "Automatic backend differs from scalar";
 
-            const float fma =
-                l2_distance_avx2_fma(a, b);
+            // Only call explicit SIMD implementations when supported.
+            if (features.avx2)
+            {
+                const float avx2 = l2_distance_avx2(a, b);
 
-            EXPECT_NEAR(avx2, scalar, 1e-3f)
-                << "AVX2 failed at dimension "
-                << dimension
-                << ", iteration "
-                << iteration;
+                EXPECT_NEAR(avx2, scalar, 1e-3f)
+                    << "AVX2 differs from scalar";
+            }
 
-            EXPECT_NEAR(fma, scalar, 1e-3f)
-                << "FMA failed at dimension "
-                << dimension
-                << ", iteration "
-                << iteration;
+            if (features.avx2 && features.fma)
+            {
+                const float fma = l2_distance_avx2_fma(a, b);
+
+                EXPECT_NEAR(fma, scalar, 1e-3f)
+                    << "AVX2+FMA differs from scalar";
+            }
         }
     }
 }
+
 
 // randomaized test for dot product backends matching
 TEST(DotProductTest, RandomizedBackendsMatch)

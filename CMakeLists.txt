@@ -303,6 +303,7 @@ gtest_discover_tests(
 add_executable(cortex_benchmarks
     benchmarks/distance_benchmark.cpp
     benchmarks/hnsw_search_benchmark.cpp
+    benchmarks/hnsw_real_data_benchmark.cpp
 )
 
 target_link_libraries(cortex_benchmarks

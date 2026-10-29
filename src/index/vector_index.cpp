@@ -187,9 +187,7 @@ namespace cortex::index
             }
 
             // Temporary lexical score: higher means more matched terms.
-            results.push_back({record.id,
-                               -static_cast<float>(matched_terms),
-                               &record});
+            results.push_back({record.id,-static_cast<float>(matched_terms), &record});
         }
 
         std::sort(

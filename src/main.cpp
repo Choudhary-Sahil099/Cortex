@@ -28,21 +28,20 @@ namespace
             << "  cortex help\n";
     }
 
+    // the steructure of the evaluation query
     struct EvaluationQuery
     {
         std::string query;
         std::unordered_set<std::string> relevant_chunk_ids;
     };
 
-    std::vector<EvaluationQuery> loadEvaluationDataset(
-        const std::string &path)
+    std::vector<EvaluationQuery> loadEvaluationDataset(const std::string &path)
     {
-        std::ifstream file(path);
+        std::ifstream file(path);// read the file of the relevant path
 
         if (!file)
         {
-            throw std::runtime_error(
-                "Could not open evaluation dataset: " + path);
+            throw std::runtime_error("Could not open evaluation dataset: " + path);
         }
 
         std::vector<EvaluationQuery> queries;
