@@ -3,38 +3,65 @@
 *.user
 *.suo
 
-# CMake generated files
+# CMake and build directories
 out/
 build/
+build-*/
 cmake-build-*/
 
-# Build artifacts
+# Compiled binaries
 *.exe
 *.obj
 *.lib
 *.dll
 *.pdb
-
-# Debug / profiling artifacts
 *.ilk
+*.o
+*.so
+*.a
+*.dylib
 
-# OS files
+# Operating system files
 .DS_Store
 Thumbs.db
 
-#onnx
-models/
-
-#local
+# Environment and credentials
 .env
-emails_mixed_50/
-data/
-.env.backup_50emails
-.env.backup-20261127-113044
+.env.*
+!.env.example
 
-# Dependency-free core build
-build-core/
-data/
-vcpkg_installed/
-build-full/
+# Model files
+models/
+*.onnx
+
+# Local emails and generated datasets
+emails_mixed_50/
 datasets/
+data/
+*.cortex
+
+# Benchmark and evaluation directories
+benchmark_results/
+benchmark_corrected/
+candidate_results/
+weight_results/
+latency_results/
+contrast_experiment/
+decomposition_experiment/
+
+# Generated evaluation logs
+*_results.txt
+evaluation_*.txt
+benchmark_*.txt
+indexing_*.txt
+*.log
+
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Local dependency artifacts
+vcpkg_installed/
