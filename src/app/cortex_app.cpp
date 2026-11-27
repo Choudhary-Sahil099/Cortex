@@ -67,8 +67,8 @@ namespace cortex::app
     std::vector<index::VectorSearchResult> CortexApp::search(const std::string& query,std::size_t k) const{
         return retriever_.search(query, k);
     }
-    std::vector<index::VectorSearchResult> CortexApp::hybridSearch(const std::string& query,std::size_t k) const
+    std::vector<index::VectorSearchResult> CortexApp::hybridSearch(const std::string& query,std::size_t k, std::size_t candidate_k, double lexical_weight) const
     {
-        return retriever_.hybridSearch(query, k);
+        return retriever_.hybridSearch(query, k, candidate_k, lexical_weight);
     }
 }

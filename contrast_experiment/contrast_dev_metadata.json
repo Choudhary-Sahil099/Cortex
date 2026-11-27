@@ -1,0 +1,452 @@
+[
+  {
+    "query": "For Cedar Bridge Central, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-01195_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Cedar Bridge Central",
+    "original_query": "For Cedar Bridge Central, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Silver Bridge North, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-06111_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Silver Bridge North",
+    "original_query": "For Silver Bridge North, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Harbor Orchard West, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-02875_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Harbor Orchard West",
+    "original_query": "For Harbor Orchard West, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Bridge North, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-05103_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Bridge North",
+    "original_query": "For River Bridge North, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Garden East, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-04559_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Garden East",
+    "original_query": "For Quartz Garden East, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Cloud East, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-08243_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Cloud East",
+    "original_query": "For Willow Cloud East, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Silver Summit North, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-06903_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Silver Summit North",
+    "original_query": "For Silver Summit North, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Harbor Cloud West, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-02275_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Harbor Cloud West",
+    "original_query": "For Harbor Cloud West, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Juniper Cloud East, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-09247_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Juniper Cloud East",
+    "original_query": "For Juniper Cloud East, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Maple Bridge East, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-03151_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Maple Bridge East",
+    "original_query": "For Maple Bridge East, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Cedar Garden West, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-01575_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Cedar Garden West",
+    "original_query": "For Cedar Garden West, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Atlas East, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-08059_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Atlas East",
+    "original_query": "For Willow Atlas East, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Cedar Orchard North, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-01811_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Cedar Orchard North",
+    "original_query": "For Cedar Orchard North, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Summit East, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-07947_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Summit East",
+    "original_query": "For Coral Summit East, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Maple Summit North, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-03903_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Maple Summit North",
+    "original_query": "For Maple Summit North, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Amber Field South, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-00439_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Amber Field South",
+    "original_query": "For Amber Field South, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Lighthouse South, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-08627_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Lighthouse South",
+    "original_query": "For Willow Lighthouse South, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Summit North, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-04903_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Summit North",
+    "original_query": "For Quartz Summit North, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Maple Atlas Central, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-03095_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Maple Atlas Central",
+    "original_query": "For Maple Atlas Central, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Garden West, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-08579_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Garden West",
+    "original_query": "For Willow Garden West, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Juniper Summit East, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-09947_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Juniper Summit East",
+    "original_query": "For Juniper Summit East, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Silver Bridge South, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-06131_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Silver Bridge South",
+    "original_query": "For Silver Bridge South, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Bridge East, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-04143_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Bridge East",
+    "original_query": "For Quartz Bridge East, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Amber Atlas South, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-00031_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Amber Atlas South",
+    "original_query": "For Amber Atlas South, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Cloud South, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-07231_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Cloud South",
+    "original_query": "For Coral Cloud South, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Delta Central, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-07391_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Delta Central",
+    "original_query": "For Coral Delta Central, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Field East, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-05459_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Field East",
+    "original_query": "For River Field East, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Orchard Central, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-08899_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Orchard Central",
+    "original_query": "For Willow Orchard Central, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Amber Meadow West, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-00767_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Amber Meadow West",
+    "original_query": "For Amber Meadow West, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Cedar Delta East, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-01347_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Cedar Delta East",
+    "original_query": "For Cedar Delta East, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Orchard South, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-08835_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Orchard South",
+    "original_query": "For Willow Orchard South, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Cloud North, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-05207_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Cloud North",
+    "original_query": "For River Cloud North, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Delta North, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-08307_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Delta North",
+    "original_query": "For Willow Delta North, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Maple Delta Central, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-03395_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Maple Delta Central",
+    "original_query": "For Maple Delta Central, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Silver Garden Central, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-06583_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Silver Garden Central",
+    "original_query": "For Silver Garden Central, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Willow Garden Central, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-08595_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Willow Garden Central",
+    "original_query": "For Willow Garden Central, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Harbor Bridge West, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-02171_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Harbor Bridge West",
+    "original_query": "For Harbor Bridge West, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Silver Atlas Central, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-06095_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Silver Atlas Central",
+    "original_query": "For Silver Atlas Central, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Amber Lighthouse West, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-00679_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Amber Lighthouse West",
+    "original_query": "For Amber Lighthouse West, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Meadow South, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-07739_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Meadow South",
+    "original_query": "For Coral Meadow South, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Bridge Central, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-05187_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Bridge Central",
+    "original_query": "For River Bridge Central, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Juniper Orchard Central, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-09883_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Juniper Orchard Central",
+    "original_query": "For Juniper Orchard Central, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Delta East, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-07343_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Delta East",
+    "original_query": "For Coral Delta East, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Cloud West, find the authorized final plan for access renewal.",
+    "relevant_chunk_ids": [
+      "bench10-email-04275_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Cloud West",
+    "original_query": "For Quartz Cloud West, find the authorized final plan for access renewal, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Lighthouse East, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-04651_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Lighthouse East",
+    "original_query": "For Quartz Lighthouse East, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Quartz Garden North, find the authorized final plan for equipment delivery.",
+    "relevant_chunk_ids": [
+      "bench10-email-04511_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Quartz Garden North",
+    "original_query": "For Quartz Garden North, find the authorized final plan for equipment delivery, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Coral Lighthouse Central, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-07699_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Coral Lighthouse Central",
+    "original_query": "For Coral Lighthouse Central, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For Juniper Meadow North, find the authorized final plan for database maintenance.",
+    "relevant_chunk_ids": [
+      "bench10-email-09719_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "Juniper Meadow North",
+    "original_query": "For Juniper Meadow North, find the authorized final plan for database maintenance, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Atlas South, find the authorized final plan for invoice payment.",
+    "relevant_chunk_ids": [
+      "bench10-email-05023_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Atlas South",
+    "original_query": "For River Atlas South, find the authorized final plan for invoice payment, rather than the tentative proposal or provisional slot."
+  },
+  {
+    "query": "For River Orchard Central, find the authorized final plan for software deployment.",
+    "relevant_chunk_ids": [
+      "bench10-email-05887_0"
+    ],
+    "type": "near_duplicate_disambiguation",
+    "project": "River Orchard Central",
+    "original_query": "For River Orchard Central, find the authorized final plan for software deployment, rather than the tentative proposal or provisional slot."
+  }
+]

@@ -3,6 +3,49 @@
 #include <fstream>
 #include <stdexcept>
 #include <vector>
+#include <filesystem>
+#include <random>
+#include <limits>
+#include <system_error>
+#include <cmath>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <cstdlib>
+#endif
+
+namespace {
+namespace fs = std::filesystem;
+struct StagingDirectory {
+    fs::path path;
+    explicit StagingDirectory(const fs::path& parent) {
+#ifdef _WIN32
+        std::random_device random;
+        for (int i = 0; i < 32; ++i) {
+            auto candidate = parent / (L".cortex-save-" + std::to_wstring(random()) + L"-" + std::to_wstring(random()));
+            if (fs::create_directory(candidate)) { path = std::move(candidate); return; }
+        }
+        throw std::runtime_error("Cannot create staging directory");
+#else
+        auto pattern = (parent / ".cortex-save-XXXXXX").string();
+        if (!::mkdtemp(pattern.data())) throw std::runtime_error("Cannot create staging directory");
+        path = pattern;
+#endif
+    }
+    ~StagingDirectory() { std::error_code ec; fs::remove_all(path, ec); }
+    StagingDirectory(const StagingDirectory&) = delete;
+    StagingDirectory& operator=(const StagingDirectory&) = delete;
+};
+void replace_file(const fs::path& source, const fs::path& destination) {
+#ifdef _WIN32
+    if (!MoveFileExW(source.c_str(), destination.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        throw std::system_error(static_cast<int>(GetLastError()), std::system_category(), "Replace Cortex index");
+#else
+    fs::rename(source, destination);
+#endif
+}
+}
 
 namespace cortex::persistence {
 
@@ -12,9 +55,11 @@ namespace cortex::persistence {
         const std::string& path
     ) {
 
-        // header states
+        const auto destination = fs::absolute(fs::path(path));
+        StagingDirectory staging(destination.parent_path());
+        const auto temporary = staging.path / "index.tmp";
         std::ofstream file(
-            path,
+            temporary,
             std::ios::binary
         );
 
@@ -224,8 +269,11 @@ namespace cortex::persistence {
                 "Failed while writing Cortex file"
             );
         }
-
-
+        file.flush();
+        if (!file) throw std::runtime_error("Failed to flush Cortex index");
+        file.close();
+        if (!file) throw std::runtime_error("Failed to close Cortex index");
+        replace_file(temporary, destination);
     }
 
     index::HNSWIndex Serializer::load(
@@ -242,6 +290,20 @@ namespace cortex::persistence {
             );
         }
 
+        // Bound allocations by the actual file length, and cap configuration
+        // parameters before constructing any graph objects.
+        file.seekg(0, std::ios::end);
+        const auto end = file.tellg();
+        if (end < 0) throw std::runtime_error("Cannot determine Cortex file size");
+        const auto file_size = static_cast<std::uint64_t>(end);
+        file.seekg(0, std::ios::beg);
+        auto require_bytes = [&](std::uint64_t count, std::uint64_t width) {
+            const auto position = file.tellg();
+            if (position < 0 || static_cast<std::uint64_t>(position) > file_size ||
+                count > (file_size - static_cast<std::uint64_t>(position)) / width ||
+                count > std::numeric_limits<std::size_t>::max() / width)
+                throw std::runtime_error("Invalid or truncated Cortex payload");
+        };
         std::uint64_t magic = 0;
 
         file.read(
@@ -310,19 +372,19 @@ namespace cortex::persistence {
             );
         }
 
-        if (dimension == 0) {
+        if (dimension == 0 || dimension > 65536) {
             throw std::runtime_error(
                 "Invalid Cortex dimension"
             );
         }
 
-        if (M == 0) {
+        if (M == 0 || M > 65536) {
             throw std::runtime_error(
                 "Invalid Cortex M parameter"
             );
         }
 
-        if (ef_construction == 0) {
+        if (ef_construction == 0 || ef_construction > 10000000 || ef_search == 0 || ef_search > 10000000) {
             throw std::runtime_error(
                 "Invalid Cortex ef_construction parameter"
             );
@@ -351,6 +413,7 @@ namespace cortex::persistence {
                 "Failed to read Cortex index state"
             );
         }
+        if (max_level > 64) throw std::runtime_error("Invalid Cortex max level");
         index::HNSWIndex index(
             static_cast<std::size_t>(dimension),
             static_cast<std::size_t>(M),
@@ -368,6 +431,7 @@ namespace cortex::persistence {
                 "Failed to read Cortex record count"
             );
         }
+        require_bytes(record_count, 24 + dimension * sizeof(float));
         for (std::uint64_t i = 0; i < record_count; ++i) {
 
             std::uint64_t id = 0;
@@ -395,6 +459,7 @@ namespace cortex::persistence {
                 );
             }
 
+            require_bytes(record_dimension, sizeof(float));
             cortex::vector::Vector vector(
                 static_cast<std::size_t>(record_dimension)
             );
@@ -411,6 +476,8 @@ namespace cortex::persistence {
                     "Failed to read Cortex vector data"
                 );
             }
+            for (std::size_t j = 0; j < vector.dimension(); ++j)
+                if (!std::isfinite(vector[j])) throw std::runtime_error("Non-finite persisted vector");
             std::uint64_t metadata_count = 0;
 
             file.read(
@@ -424,6 +491,7 @@ namespace cortex::persistence {
                 );
             }
 
+            require_bytes(metadata_count, 16);
             cortex::core::metaData metadata;
 
             for (std::uint64_t j = 0; j < metadata_count; ++j) {
@@ -441,6 +509,7 @@ namespace cortex::persistence {
                     );
                 }
 
+                require_bytes(key_size, 1);
                 std::string key(
                     static_cast<std::size_t>(key_size),
                     '\0'
@@ -468,6 +537,7 @@ namespace cortex::persistence {
                     );
                 }
 
+                require_bytes(value_size, 1);
                 std::string value(
                     static_cast<std::size_t>(value_size),
                     '\0'
@@ -489,11 +559,11 @@ namespace cortex::persistence {
                     std::move(value)
                 );
             }
-            index.restore_vector(
+            if (id >= next_id || !index.restore_vector(
                 static_cast<cortex::core::VectorId>(id),
                 std::move(vector),
                 std::move(metadata)
-            );
+            )) throw std::runtime_error("Duplicate or invalid Cortex vector ID");
         }
 
         std::uint64_t node_count = 0;
@@ -507,6 +577,8 @@ namespace cortex::persistence {
                 "Failed to read Cortex record count"
             );
         }
+        if (node_count != record_count) throw std::runtime_error("Cortex node/record count mismatch");
+        require_bytes(node_count, 24);
         // updated version
         struct PendingEdge {
             std::size_t first;
@@ -566,6 +638,8 @@ namespace cortex::persistence {
                     );
                 }
 
+                require_bytes(neighbour_count, 8);
+                if (neighbour_count > node_count) throw std::runtime_error("Invalid neighbour count");
                 for (
                     std::uint64_t j = 0;
                     j < neighbour_count;
@@ -615,6 +689,7 @@ namespace cortex::persistence {
                 "Failed to read Cortex index state"
             );
         }
+        if (file.peek() != std::char_traits<char>::eof()) throw std::runtime_error("Unexpected trailing Cortex data");
         return index;
     }
 

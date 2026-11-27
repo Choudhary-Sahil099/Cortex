@@ -5,7 +5,8 @@
 #include <utility>
 #include <algorithm>
 #include <cctype>
-#include <sstream>
+#include <cmath>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 namespace cortex::index
@@ -34,6 +35,8 @@ namespace cortex::index
                 "EmbeddedChunk embedding dimension does not match VectorIndex dimension");
         }
 
+        if (!std::all_of(chunk.embedding.begin(), chunk.embedding.end(), [](float x) { return std::isfinite(x); }))
+            throw std::invalid_argument("Embedding contains a non-finite value");
         vector::Vector vector(chunk.embedding.size());
 
         for (std::size_t i = 0; i < chunk.embedding.size(); ++i)
@@ -48,6 +51,7 @@ namespace cortex::index
             {"text", chunk.text},
             {"chunk_index", std::to_string(chunk.index)}};
 
+        lexical_dirty_ = true;
         return hnsw_.insert(
             std::move(vector),
             std::move(metadata));
@@ -73,6 +77,8 @@ namespace cortex::index
                 "Search k must be greater than zero");
         }
 
+        if (!std::all_of(query.begin(), query.end(), [](float x) { return std::isfinite(x); }))
+            throw std::invalid_argument("Query contains a non-finite value");
         vector::Vector query_vector(query.size());
 
         for (std::size_t i = 0; i < query.size(); ++i)
@@ -98,122 +104,78 @@ namespace cortex::index
         return results;
     }
 
-    // lexical search
-    std::vector<VectorSearchResult> VectorIndex::lexicalSearch(const std::string &query, std::size_t k) const
-    {
-        if (query.empty())
-        {
-            throw std::invalid_argument("Lexical search query must not be empty");
-        }
-
-        if (k == 0)
-        {
-            throw std::invalid_argument("Lexical search k must be greater than zero");
-        }
-
-        // Convert text to lowercase whitespace-separated tokens.
-        const auto tokenize = [](const std::string &text)
-        {
-            static const std::unordered_set<std::string> stop_words = {
-                "a", "an", "and", "are", "as", "at", "be", "been",
-                "by", "for", "from", "has", "have", "he", "her",
-                "his", "i", "in", "is", "it", "its", "me", "my",
-                "of", "on", "or", "our", "she", "that", "the",
-                "their", "them", "there", "this", "to", "was",
-                "we", "were", "what", "when", "where", "which",
-                "who", "will", "with", "you", "your"
-            };
-
-            std::unordered_set<std::string> tokens;
-            std::istringstream stream(text);
+    namespace {
+        // ASCII lexical tokens; non-ASCII bytes are separators. Dense retrieval
+        // remains available for text outside this tokenizer's scope.
+        std::map<std::string, std::size_t> terms(const std::string& text) {
+            std::map<std::string, std::size_t> counts;
             std::string token;
-
-            while (stream >> token)
-            {
-                std::string normalized;
-
-                for (unsigned char ch : token)
-                {
-                    if (std::isalnum(ch))
-                    {
-                        normalized += static_cast<char>(
-                            std::tolower(ch));
-                    }
-                }
-
-                if (!normalized.empty() &&
-                    !stop_words.contains(normalized))
-                {
-                    tokens.insert(normalized);
-                }
+            auto flush = [&] { if (!token.empty()) { ++counts[token]; token.clear(); } };
+            for (unsigned char c : text) {
+                if (c >= 'A' && c <= 'Z') token += static_cast<char>(c + ('a' - 'A'));
+                else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) token += static_cast<char>(c);
+                else flush();
             }
-
-            return tokens;
-        };
-
-        const auto query_terms = tokenize(query);
-
-        if (query_terms.empty())
-        {
-            return {};
+            flush();
+            return counts;
         }
+    }
 
+    void VectorIndex::rebuildLexicalIndex() const {
+        if (!lexical_dirty_) return;
+        decltype(postings_) postings;
+        decltype(lengths_) lengths;
+        double total = 0;
+        for (const auto& record : hnsw_.vector_store().records()) {
+            const auto it = record.metadata.find("text");
+            if (it == record.metadata.end()) continue;
+            std::size_t length = 0;
+            for (const auto& [term, frequency] : terms(it->second)) {
+                postings[term].push_back({record.id, frequency});
+                length += frequency;
+            }
+            lengths.emplace(record.id, length);
+            total += static_cast<double>(length);
+        }
+        average_length_ = lengths.empty() ? 0.0 : total / lengths.size();
+        postings_.swap(postings);
+        lengths_.swap(lengths);
+        lexical_dirty_ = false;
+    }
+
+    std::vector<VectorSearchResult> VectorIndex::lexicalSearch(const std::string& query, std::size_t k) const {
+        if (query.empty() || k == 0) throw std::invalid_argument("Invalid lexical query or k");
+        rebuildLexicalIndex();
+        if (average_length_ == 0.0) return {};
+        constexpr double k1 = 1.2, b = 0.75;
+        std::unordered_map<std::size_t, double> scores;
+        for (const auto& [term, frequency] : terms(query)) {
+            const auto it = postings_.find(term);
+            if (it == postings_.end()) continue;
+            const double df = static_cast<double>(it->second.size());
+            const double idf = std::log1p((lengths_.size() - df + 0.5) / (df + 0.5));
+            for (const auto& posting : it->second) {
+                const double tf = static_cast<double>(posting.frequency);
+                const double norm = 1.0 - b + b * lengths_.at(posting.id) / average_length_;
+                scores[posting.id] += idf * tf * (k1 + 1.0) / (tf + k1 * norm);
+            }
+        }
         std::vector<VectorSearchResult> results;
-
-        for (const auto &record : hnsw_.vector_store().records())
-        {
-            const auto text_it = record.metadata.find("text");
-
-            if (text_it == record.metadata.end())
-            {
-                continue;
-            }
-
-            const auto document_terms = tokenize(text_it->second);
-
-            std::size_t matched_terms = 0;
-
-            for (const auto &term : query_terms)
-            {
-                if (document_terms.contains(term))
-                {
-                    ++matched_terms;
-                }
-            }
-
-            if (matched_terms == 0)
-            {
-                continue;
-            }
-
-            // Temporary lexical score: higher means more matched terms.
-            results.push_back({record.id,-static_cast<float>(matched_terms), &record});
-        }
-
-        std::sort(
-            results.begin(),
-            results.end(),
-            [](const VectorSearchResult &a,
-               const VectorSearchResult &b)
-            {
-                if (a.distance != b.distance)
-                {
-                    return a.distance < b.distance;
-                }
-
-                return a.id < b.id;
-            });
-
-        if (results.size() > k)
-        {
-            results.resize(k);
-        }
-
+        results.reserve(scores.size());
+        for (const auto& [id, score] : scores)
+            results.push_back({id, -static_cast<float>(score), &get(id)});
+        const auto order = [](const auto& a, const auto& b) {
+            return a.distance == b.distance ? a.id < b.id : a.distance < b.distance;
+        };
+        const auto limit = std::min(k, results.size());
+        std::partial_sort(results.begin(), results.begin() + limit, results.end(), order);
+        results.resize(limit);
         return results;
     }
 
     bool VectorIndex::remove(std::size_t id)
     {
+        lexical_dirty_ = true;
         return hnsw_.remove(id);
     }
     std::vector<std::size_t> VectorIndex::findByMetadata(

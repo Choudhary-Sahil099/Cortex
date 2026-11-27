@@ -9,80 +9,85 @@
 #include <unordered_set>
 #include <utility>
 
-
-// for the persistence state saftey the design includes states are -> next_id ,, entry->point ,, max_level 
-namespace cortex::index {
+// for the persistence state saftey the design includes states are -> next_id ,, entry->point ,, max_level
+namespace cortex::index
+{
 
     HNSWIndex::HNSWIndex(
         std::size_t dimension,
         std::size_t M,
         std::size_t ef_construction,
         std::size_t ef_search,
-        std::uint64_t seed
-    )
+        std::uint64_t seed)
         : dimension_(dimension),
-        M_(M),
-        ef_construction_(ef_construction),
-        ef_search_(ef_search),
-        max_level_(0),
-        entry_point_(std::numeric_limits<std::size_t>::max()),
-        vector_store_(dimension),
-        level_generator_(1.0, seed)
+          M_(M),
+          ef_construction_(ef_construction),
+          ef_search_(ef_search),
+          max_level_(0),
+          entry_point_(std::numeric_limits<std::size_t>::max()),
+          vector_store_(dimension),
+          level_generator_(1.0, seed)
     {
-        if (dimension == 0) {
+        if (dimension == 0)
+        {
             throw std::invalid_argument(
-                "HNSW dimension must be greater than zero"
-            );
+                "HNSW dimension must be greater than zero");
         }
 
-        if (M == 0) {
+        if (M == 0)
+        {
             throw std::invalid_argument(
-                "HNSW M must be greater than zero"
-            );
+                "HNSW M must be greater than zero");
         }
 
-        if (ef_construction == 0) {
+        if (ef_construction == 0)
+        {
             throw std::invalid_argument(
-                "ef_construction must be greater than zero"
-            );
+                "ef_construction must be greater than zero");
         }
 
-        if (ef_search == 0) {
+        if (ef_search == 0)
+        {
             throw std::invalid_argument(
-                "ef_search must be greater than zero"
-            );
+                "ef_search must be greater than zero");
         }
     }
 
-    std::size_t HNSWIndex::dimension() const {
+    std::size_t HNSWIndex::dimension() const
+    {
         return dimension_;
     }
 
-    std::size_t HNSWIndex::M() const {
+    std::size_t HNSWIndex::M() const
+    {
         return M_;
     }
 
-    std::size_t HNSWIndex::ef_construction() const {
+    std::size_t HNSWIndex::ef_construction() const
+    {
         return ef_construction_;
     }
 
-    std::size_t HNSWIndex::ef_search() const {
+    std::size_t HNSWIndex::ef_search() const
+    {
         return ef_search_;
     }
 
-    std::size_t HNSWIndex::size() const {
+    std::size_t HNSWIndex::size() const
+    {
         return nodes_.size();
     }
 
-    bool HNSWIndex::empty() const {
+    bool HNSWIndex::empty() const
+    {
         return nodes_.empty();
     }
 
-
     // states persistence
 
-    //highest layer
-    std::size_t HNSWIndex::max_level() const {
+    // highest layer
+    std::size_t HNSWIndex::max_level() const
+    {
         return max_level_;
     }
 
@@ -92,47 +97,49 @@ namespace cortex::index {
         return entry_point_;
     }
 
-    // prevents id reuse 
+    // prevents id reuse
     std::size_t HNSWIndex::next_id() const
     {
         return vector_store_.next_id();
     }
 
-
-    bool HNSWIndex::has_entry_point() const {
+    bool HNSWIndex::has_entry_point() const
+    {
         return !nodes_.empty();
     }
 
-    const HNSWNode& HNSWIndex::node(std::size_t id) const {
+    const HNSWNode &HNSWIndex::node(std::size_t id) const
+    {
         const auto it = nodes_.find(id);
 
-        if (it == nodes_.end()) {
+        if (it == nodes_.end())
+        {
             throw std::out_of_range(
-                "HNSW node ID does not exist"
-            );
+                "HNSW node ID does not exist");
         }
 
         return *it->second;
     }
 
-    const float* HNSWIndex::vector_data(std::size_t id) const {
+    const float *HNSWIndex::vector_data(std::size_t id) const
+    {
         return vector_store_.vector_data(id);
     }
 
-    std::size_t HNSWIndex::insert(vector::Vector vector , core::metaData metadata) {
-        if (vector.dimension() != dimension_) {
+    std::size_t HNSWIndex::insert(vector::Vector vector, core::metaData metadata)
+    {
+        if (vector.dimension() != dimension_)
+        {
             throw std::invalid_argument(
-                "Vector dimension does not match HNSW index dimension"
-            );
+                "Vector dimension does not match HNSW index dimension");
         }
 
         const std::size_t id =
             vector_store_.add(
                 std::move(vector),
-                std::move(metadata)
-            );
+                std::move(metadata));
 
-        const float* inserted_data =
+        const float *inserted_data =
             vector_store_.vector_data(id);
 
         const std::size_t level =
@@ -141,49 +148,46 @@ namespace cortex::index {
         insertNode(
             id,
             inserted_data,
-            level
-        );
+            level);
 
         return id;
     }
 
-
-    //insertNode 
+    // insertNode
     void HNSWIndex::insertNode(
         std::size_t id,
-        const float* vector_data,
-        std::size_t level
-    ) {
-        if (vector_data == nullptr) {
+        const float *vector_data,
+        std::size_t level)
+    {
+        if (vector_data == nullptr)
+        {
             throw std::invalid_argument(
-                "Vector data must not be null"
-            );
+                "Vector data must not be null");
         }
 
-        if (!vector_store_.contains(id)) {
+        if (!vector_store_.contains(id))
+        {
             throw std::out_of_range(
-                "VectorStore ID does not exist"
-            );
+                "VectorStore ID does not exist");
         }
 
-        if (nodes_.contains(id)) {
+        if (nodes_.contains(id))
+        {
             throw std::invalid_argument(
-                "HNSW node ID already exists"
-            );
+                "HNSW node ID already exists");
         }
 
         auto node =
             std::make_unique<HNSWNode>(
                 id,
-                level
-            );
+                level);
 
         nodes_.emplace(
             id,
-            std::move(node)
-        );
+            std::move(node));
 
-        if (nodes_.size() == 1) {
+        if (nodes_.size() == 1)
+        {
             entry_point_ = id;
             max_level_ = level;
             return;
@@ -195,14 +199,13 @@ namespace cortex::index {
         for (
             std::size_t current_level = max_level_;
             current_level > level;
-            --current_level
-            ) {
+            --current_level)
+        {
             current_entry =
                 greedySearch(
                     vector_data,
                     current_entry,
-                    current_level
-                );
+                    current_level);
         }
 
         const std::size_t lowest_level =
@@ -211,47 +214,50 @@ namespace cortex::index {
         for (
             std::size_t current_level = lowest_level;
             ;
-            --current_level
-            ) {
+            --current_level)
+        {
             const auto candidates =
                 search_layer(
                     vector_data,
-                    { current_entry },
+                    {current_entry},
                     ef_construction_,
-                    current_level
-                );
+                    current_level);
 
             connectSelectedNeighbours(
                 id,
                 candidates,
-                current_level
-            );
+                current_level);
 
-            if (!candidates.empty()) {
+            if (!candidates.empty())
+            {
                 current_entry =
                     candidates.front().id;
             }
 
-            if (current_level == 0) {
+            if (current_level == 0)
+            {
                 break;
             }
         }
 
-        if (level > max_level_) {
+        if (level > max_level_)
+        {
             entry_point_ = id;
             max_level_ = level;
         }
     }
 
     // remove implementation
-    bool HNSWIndex::remove(std::size_t id) {
+    bool HNSWIndex::remove(std::size_t id)
+    {
         const auto node_it = nodes_.find(id);
 
-        if (node_it == nodes_.end()) {
+        if (node_it == nodes_.end())
+        {
             return false;
         }
 
-        HNSWNode& node =*node_it->second;
+        HNSWNode &node = *node_it->second;
 
         const std::size_t node_level = node.level();
 
@@ -261,59 +267,61 @@ namespace cortex::index {
         for (
             std::size_t level = 0;
             level <= node_level;
-            ++level
-            ) {
-            const auto& neighbours =
+            ++level)
+        {
+            const auto &neighbours =
                 node.neighbors(level);
 
             for (
                 const std::size_t neighbour_id :
-            neighbours
-                ) {
+                neighbours)
+            {
                 edges_to_remove.emplace_back(
                     neighbour_id,
-                    level
-                );
+                    level);
             }
         }
 
         for (
-            const auto& [neighbour_id, level] :
-            edges_to_remove
-            ) {
-            if (nodes_.contains(neighbour_id)) {
+            const auto &[neighbour_id, level] :
+            edges_to_remove)
+        {
+            if (nodes_.contains(neighbour_id))
+            {
                 disconnectNodes(
                     id,
                     neighbour_id,
-                    level
-                );
+                    level);
             }
         }
         nodes_.erase(node_it);
 
-        if (id == entry_point_) {
-            if (nodes_.empty()) {
+        if (id == entry_point_)
+        {
+            if (nodes_.empty())
+            {
                 entry_point_ =
                     std::numeric_limits<std::size_t>::max();
 
                 max_level_ = 0;
             }
-            else {
+            else
+            {
                 std::size_t new_entry_point =
                     std::numeric_limits<std::size_t>::max();
 
                 std::size_t new_max_level = 0;
 
-                for (const auto& [node_id, node_ptr] : nodes_) {
+                for (const auto &[node_id, node_ptr] : nodes_)
+                {
                     const std::size_t level =
                         node_ptr->level();
 
                     if (
                         new_entry_point ==
-                        std::numeric_limits<std::size_t>::max()
-                        ||
-                        level > new_max_level
-                        ) {
+                            std::numeric_limits<std::size_t>::max() ||
+                        level > new_max_level)
+                    {
                         new_entry_point = node_id;
                         new_max_level = level;
                     }
@@ -326,32 +334,33 @@ namespace cortex::index {
         const bool removed =
             vector_store_.remove(id);
 
-        if (!removed) {
+        if (!removed)
+        {
             throw std::logic_error(
-                "HNSW and VectorStore are inconsistent"
-            );
+                "HNSW and VectorStore are inconsistent");
         }
 
         return true;
     }
 
-    //updated implementation
+    // updated implementation
     bool HNSWIndex::update(
         std::size_t id,
         vector::Vector vector,
-        core::metaData metadata
-    ) {
-        if (!nodes_.contains(id)) {
+        core::metaData metadata)
+    {
+        if (!nodes_.contains(id))
+        {
             return false;
         }
 
-        if (vector.dimension() != dimension_) {
+        if (vector.dimension() != dimension_)
+        {
             throw std::invalid_argument(
-                "Vector dimension does not match HNSW index dimension"
-            );
+                "Vector dimension does not match HNSW index dimension");
         }
 
-        HNSWNode& old_node =
+        HNSWNode &old_node =
             *nodes_.at(id);
 
         const std::size_t old_level =
@@ -364,32 +373,31 @@ namespace cortex::index {
         for (
             std::size_t level = 0;
             level <= old_level;
-            ++level
-            ) {
-            const auto& neighbours =
+            ++level)
+        {
+            const auto &neighbours =
                 old_node.neighbors(level);
 
             for (
                 const std::size_t neighbour_id :
-            neighbours
-                ) {
+                neighbours)
+            {
                 edges_to_remove.emplace_back(
                     neighbour_id,
-                    level
-                );
+                    level);
             }
         }
 
         for (
-            const auto& [neighbour_id, level] :
-            edges_to_remove
-            ) {
-            if (nodes_.contains(neighbour_id)) {
+            const auto &[neighbour_id, level] :
+            edges_to_remove)
+        {
+            if (nodes_.contains(neighbour_id))
+            {
                 disconnectNodes(
                     id,
                     neighbour_id,
-                    level
-                );
+                    level);
             }
         }
 
@@ -398,23 +406,21 @@ namespace cortex::index {
             vector_store_.update(
                 id,
                 std::move(vector),
-                std::move(metadata)
-            );
+                std::move(metadata));
 
-        if (!updated) {
+        if (!updated)
+        {
             throw std::logic_error(
-                "HNSW and VectorStore are inconsistent"
-            );
+                "HNSW and VectorStore are inconsistent");
         }
 
-        const float* updated_data =
+        const float *updated_data =
             vector_store_.vector_data(id);
 
         insertNode(
             id,
             updated_data,
-            old_level
-        );
+            old_level);
 
         return true;
     }
@@ -422,8 +428,8 @@ namespace cortex::index {
     void HNSWIndex::connect_nodes(
         std::size_t first,
         std::size_t second,
-        std::size_t level
-    ) {
+        std::size_t level)
+    {
         const auto first_it =
             nodes_.find(first);
 
@@ -432,48 +438,44 @@ namespace cortex::index {
 
         if (
             first_it == nodes_.end() ||
-            second_it == nodes_.end()
-            ) {
+            second_it == nodes_.end())
+        {
             throw std::out_of_range(
-                "HNSW node ID does not exist"
-            );
+                "HNSW node ID does not exist");
         }
 
-        if (first == second) {
+        if (first == second)
+        {
             throw std::invalid_argument(
-                "HNSW node cannot connect to itself"
-            );
+                "HNSW node cannot connect to itself");
         }
 
-        HNSWNode& first_node =
+        HNSWNode &first_node =
             *first_it->second;
 
-        HNSWNode& second_node =
+        HNSWNode &second_node =
             *second_it->second;
 
         if (
             level > first_node.level() ||
-            level > second_node.level()
-            ) {
+            level > second_node.level())
+        {
             throw std::invalid_argument(
-                "Level exceeds node level"
-            );
+                "Level exceeds node level");
         }
 
-        auto& first_neighbours =
+        auto &first_neighbours =
             first_node.neighbors(level);
 
-        auto& second_neighbours =
+        auto &second_neighbours =
             second_node.neighbors(level);
 
-        
         if (
             std::find(
                 first_neighbours.begin(),
                 first_neighbours.end(),
-                second
-            ) == first_neighbours.end()
-            ) {
+                second) == first_neighbours.end())
+        {
             first_neighbours.push_back(second);
         }
 
@@ -481,103 +483,107 @@ namespace cortex::index {
             std::find(
                 second_neighbours.begin(),
                 second_neighbours.end(),
-                first
-            ) == second_neighbours.end()
-            ) {
+                first) == second_neighbours.end())
+        {
             second_neighbours.push_back(first);
         }
     }
 
-  
     std::vector<HNSWSearchResult> HNSWIndex::search_layer(
-        const vector::Vector& query,
-        const std::vector<std::size_t>& entry_points,
+        const vector::Vector &query,
+        const std::vector<std::size_t> &entry_points,
         std::size_t ef,
-        std::size_t level
-    ) const {
-        if (query.dimension() != dimension_) {
+        std::size_t level) const
+    {
+        if (query.dimension() != dimension_)
+        {
             throw std::invalid_argument(
-                "Query dimension does not match HNSW index dimension"
-            );
+                "Query dimension does not match HNSW index dimension");
         }
 
         return search_layer(
             query.data(),
             entry_points,
             ef,
-            level
-        );
+            level);
     }
 
-    
     std::vector<HNSWSearchResult> HNSWIndex::search_layer(
-        const float* query_data,
-        const std::vector<std::size_t>& entry_points,
+        const float *query_data,
+        const std::vector<std::size_t> &entry_points,
         std::size_t ef,
-        std::size_t level
-    ) const {
-        if (query_data == nullptr) {
+        std::size_t level) const
+    {
+        if (query_data == nullptr)
+        {
             throw std::invalid_argument(
-                "Query data must not be null"
-            );
+                "Query data must not be null");
         }
 
-        if (ef == 0) {
+        if (ef == 0)
+        {
             throw std::invalid_argument(
-                "ef must be greater than zero"
-            );
+                "ef must be greater than zero");
         }
 
-        if (level > max_level_) {
+        if (level > max_level_)
+        {
             throw std::invalid_argument(
-                "Search level exceeds current maximum level"
-            );
+                "Search level exceeds current maximum level");
         }
 
-        if (entry_points.empty()) {
+        if (entry_points.empty())
+        {
             return {};
         }
 
         using Result = HNSWSearchResult;
-        auto compare_min =
-            [](const Result& a, const Result& b) {
-            return a.distance > b.distance;
-            };
+        const auto ranks_before = [](const Result &a, const Result &b)
+        {
+            if (a.distance != b.distance)
+            {
+                return a.distance < b.distance;
+            }
+            return a.id < b.id;
+        };
 
-        
-        auto compare_max =
-            [](const Result& a, const Result& b) {
-            return a.distance < b.distance;
-            };
+        const auto compare_min = [&ranks_before](const Result &a, const Result &b)
+        {
+            return ranks_before(b, a);
+        };
+
+        const auto compare_max = ranks_before;
 
         std::priority_queue<
             Result,
             std::vector<Result>,
-            decltype(compare_min)
-        > candidates(compare_min);
+            decltype(compare_min)>
+            candidates(compare_min);
 
         std::priority_queue<
             Result,
             std::vector<Result>,
-            decltype(compare_max)
-        > results(compare_max);
+            decltype(compare_max)>
+            results(compare_max);
 
         std::unordered_set<std::size_t> visited;
 
-        const auto& backend =
+        const auto &backend =
             cortex::vector::get_vector_backend();
 
-        for (const std::size_t entry_point : entry_points) {
-            if (!nodes_.contains(entry_point)) {
+        for (const std::size_t entry_point : entry_points)
+        {
+            if (!nodes_.contains(entry_point))
+            {
                 throw std::out_of_range(
-                    "HNSW entry point does not exist"
-                );
+                    "HNSW entry point does not exist");
             }
 
-            const HNSWNode& node =
+            const HNSWNode &node =
                 *nodes_.at(entry_point);
 
-            if (level > node.level()) {
+            if (level > node.level())
+            {
                 continue;
             }
 
@@ -585,13 +591,11 @@ namespace cortex::index {
                 backend.raw_l2_distance(
                     query_data,
                     vector_store_.vector_data(entry_point),
-                    dimension_
-                );
+                    dimension_);
 
             const Result result{
                 entry_point,
-                distance
-            };
+                distance};
 
             candidates.push(result);
             results.push(result);
@@ -599,30 +603,34 @@ namespace cortex::index {
             visited.insert(entry_point);
         }
 
-        while (!candidates.empty()) {
+        while (!candidates.empty())
+        {
             const Result current =
                 candidates.top();
 
             candidates.pop();
 
-     
-            if (results.size() >= ef) {
+            if (results.size() >= ef)
+            {
                 const float worst_distance =
                     results.top().distance;
 
-                if (current.distance > worst_distance) {
+                if (current.distance > worst_distance)
+                {
                     break;
                 }
             }
 
-            const HNSWNode& current_node =
+            const HNSWNode &current_node =
                 *nodes_.at(current.id);
 
-            const auto& neighbours =
+            const auto &neighbours =
                 current_node.neighbors(level);
 
-            for (const std::size_t neighbour_id : neighbours) {
-                if (visited.contains(neighbour_id)) {
+            for (const std::size_t neighbour_id : neighbours)
+            {
+                if (visited.contains(neighbour_id))
+                {
                     continue;
                 }
 
@@ -632,21 +640,19 @@ namespace cortex::index {
                     backend.raw_l2_distance(
                         query_data,
                         vector_store_.vector_data(neighbour_id),
-                        dimension_
-                    );
+                        dimension_);
 
                 const Result result{
                     neighbour_id,
-                    distance
-                };
+                    distance};
 
-                if (results.size() < ef) {
+                if (results.size() < ef)
+                {
                     candidates.push(result);
                     results.push(result);
                 }
-                else if (
-                    distance < results.top().distance
-                    ) {
+                else if (ranks_before(result, results.top()))
+                {
                     candidates.push(result);
                     results.push(result);
                     results.pop();
@@ -658,7 +664,8 @@ namespace cortex::index {
 
         output.reserve(results.size());
 
-        while (!results.empty()) {
+        while (!results.empty())
+        {
             output.push_back(results.top());
             results.pop();
         }
@@ -666,56 +673,52 @@ namespace cortex::index {
         std::sort(
             output.begin(),
             output.end(),
-            [](const Result& a, const Result& b) {
-                return a.distance < b.distance;
-            }
-        );
+            ranks_before);
 
         return output;
     }
 
     std::size_t HNSWIndex::greedySearch(
-        const vector::Vector& query,
+        const vector::Vector &query,
         std::size_t entry_point,
-        std::size_t level
-    ) const {
-        if (query.dimension() != dimension_) {
+        std::size_t level) const
+    {
+        if (query.dimension() != dimension_)
+        {
             throw std::invalid_argument(
-                "Query dimension does not match HNSW index dimension"
-            );
+                "Query dimension does not match HNSW index dimension");
         }
 
         return greedySearch(
             query.data(),
             entry_point,
-            level
-        );
+            level);
     }
 
     std::size_t HNSWIndex::greedySearch(
-        const float* query_data,
+        const float *query_data,
         std::size_t entry_point,
-        std::size_t level
-    ) const {
-        if (query_data == nullptr) {
+        std::size_t level) const
+    {
+        if (query_data == nullptr)
+        {
             throw std::invalid_argument(
-                "Query data must not be null"
-            );
+                "Query data must not be null");
         }
 
-        if (!nodes_.contains(entry_point)) {
+        if (!nodes_.contains(entry_point))
+        {
             throw std::out_of_range(
-                "Entry point does not exist"
-            );
+                "Entry point does not exist");
         }
 
-        if (level > nodes_.at(entry_point)->level()) {
+        if (level > nodes_.at(entry_point)->level())
+        {
             throw std::invalid_argument(
-                "Search level exceeds entry point level"
-            );
+                "Search level exceeds entry point level");
         }
 
-        const auto& backend =
+        const auto &backend =
             cortex::vector::get_vector_backend();
 
         std::size_t current =
@@ -725,26 +728,27 @@ namespace cortex::index {
             backend.raw_l2_distance(
                 query_data,
                 vector_store_.vector_data(current),
-                dimension_
-            );
+                dimension_);
 
         bool improved = true;
 
-        while (improved) {
+        while (improved)
+        {
             improved = false;
 
-            const auto& neighbours =
+            const auto &neighbours =
                 nodes_.at(current)->neighbors(level);
 
-            for (const std::size_t neighbour : neighbours) {
+            for (const std::size_t neighbour : neighbours)
+            {
                 const float distance =
                     backend.raw_l2_distance(
                         query_data,
                         vector_store_.vector_data(neighbour),
-                        dimension_
-                    );
+                        dimension_);
 
-                if (distance < current_distance) {
+                if (distance < current_distance)
+                {
                     current = neighbour;
                     current_distance = distance;
                     improved = true;
@@ -757,281 +761,261 @@ namespace cortex::index {
 
     void HNSWIndex::connectSelectedNeighbours(
         std::size_t node_id,
-        const std::vector<HNSWSearchResult>& candidates,
-        std::size_t level
-    ) {
-        const auto& backend =
+        const std::vector<HNSWSearchResult> &candidates,
+        std::size_t level)
+    {
+        const auto &backend =
             cortex::vector::get_vector_backend();
 
         const neighbourDistanceFunction distanceFunction =
             [this, &backend](
                 std::size_t first,
-                std::size_t second
-                ) {
-                    return backend.raw_l2_distance(
-                        this->vector_data(first),
-                        this->vector_data(second),
-                        this->dimension_
-                    );
-            };
+                std::size_t second)
+        {
+            return backend.raw_l2_distance(
+                this->vector_data(first),
+                this->vector_data(second),
+                this->dimension_);
+        };
 
         const std::size_t max_neighbours =
             (level == 0)
-            ? 2 * M_
-            : M_;
+                ? 2 * M_
+                : M_;
 
         const auto selected =
             select_neighbors(
                 candidates,
                 max_neighbours,
-                distanceFunction
-            );
+                distanceFunction);
 
         std::vector<std::size_t> affected_nodes;
 
         affected_nodes.reserve(
-            selected.size()
-        );
+            selected.size());
 
-        for (const auto& candidate : selected) {
-            if (candidate.id == node_id) {
+        for (const auto &candidate : selected)
+        {
+            if (candidate.id == node_id)
+            {
                 continue;
             }
 
             connect_nodes(
                 node_id,
                 candidate.id,
-                level
-            );
+                level);
 
             affected_nodes.push_back(
-                candidate.id
-            );
+                candidate.id);
         }
 
         for (
             const std::size_t neighbour_id :
-        affected_nodes
-            ) {
+            affected_nodes)
+        {
             pruneNeighbours(
                 neighbour_id,
-                level
-            );
+                level);
         }
         pruneNeighbours(
             node_id,
-            level
-        );
+            level);
     }
 
     void HNSWIndex::pruneNeighbours(
         std::size_t node_id,
-        std::size_t level
-    ) {
-        if (!nodes_.contains(node_id)) {
+        std::size_t level)
+    {
+        if (!nodes_.contains(node_id))
+        {
             throw std::out_of_range(
-                "HNSW node ID does not exist"
-            );
+                "HNSW node ID does not exist");
         }
 
-        const auto& backend =
+        const auto &backend =
             cortex::vector::get_vector_backend();
 
         const neighbourDistanceFunction distanceFunction =
             [this, &backend](
                 std::size_t first,
-                std::size_t second
-                ) {
-                    return backend.raw_l2_distance(
-                        this->vector_data(first),
-                        this->vector_data(second),
-                        this->dimension_
-                    );
-            };
+                std::size_t second)
+        {
+            return backend.raw_l2_distance(
+                this->vector_data(first),
+                this->vector_data(second),
+                this->dimension_);
+        };
 
-        HNSWNode& node =
+        HNSWNode &node =
             *nodes_.at(node_id);
 
-        if (level > node.level()) {
+        if (level > node.level())
+        {
             throw std::invalid_argument(
-                "Level exceeds node level"
-            );
+                "Level exceeds node level");
         }
 
-        auto& neighbours =
+        auto &neighbours =
             node.neighbors(level);
 
         const std::size_t max_neighbours =
             (level == 0)
-            ? 2 * M_
-            : M_;
+                ? 2 * M_
+                : M_;
 
-        if (neighbours.size() <= max_neighbours) {
+        if (neighbours.size() <= max_neighbours)
+        {
             return;
         }
 
-        const float* node_data =
+        const float *node_data =
             vector_store_.vector_data(node_id);
 
         std::vector<HNSWSearchResult> candidates;
 
         candidates.reserve(
-            neighbours.size()
-        );
+            neighbours.size());
 
         for (
             const std::size_t neighbour_id :
-        neighbours
-            ) {
+            neighbours)
+        {
             const float distance =
                 backend.raw_l2_distance(
                     node_data,
                     vector_store_.vector_data(neighbour_id),
-                    dimension_
-                );
+                    dimension_);
 
-            candidates.push_back({
-                neighbour_id,
-                distance
-                });
+            candidates.push_back({neighbour_id,
+                                  distance});
         }
 
         const auto selected =
             select_neighbors(
                 candidates,
                 max_neighbours,
-                distanceFunction
-            );
+                distanceFunction);
 
         std::vector<std::size_t> selected_ids;
 
         selected_ids.reserve(
-            selected.size()
-        );
+            selected.size());
 
-        for (const auto& candidate : selected) {
+        for (const auto &candidate : selected)
+        {
             selected_ids.push_back(
-                candidate.id
-            );
+                candidate.id);
         }
 
         std::vector<std::size_t> removed;
 
         for (
             const std::size_t neighbour_id :
-        neighbours
-            ) {
+            neighbours)
+        {
             if (
                 std::find(
                     selected_ids.begin(),
                     selected_ids.end(),
-                    neighbour_id
-                ) == selected_ids.end()
-                ) {
+                    neighbour_id) == selected_ids.end())
+            {
                 removed.push_back(
-                    neighbour_id
-                );
+                    neighbour_id);
             }
         }
 
         for (
             const std::size_t neighbour_id :
-        removed
-            ) {
+            removed)
+        {
             disconnectNodes(
                 node_id,
                 neighbour_id,
-                level
-            );
+                level);
         }
     }
 
     void HNSWIndex::disconnectNodes(
         std::size_t first,
         std::size_t second,
-        std::size_t level
-    ) {
+        std::size_t level)
+    {
         if (
             !nodes_.contains(first) ||
-            !nodes_.contains(second)
-            ) {
+            !nodes_.contains(second))
+        {
             throw std::out_of_range(
-                "HNSW node ID does not exist"
-            );
+                "HNSW node ID does not exist");
         }
 
-        HNSWNode& first_node =
+        HNSWNode &first_node =
             *nodes_.at(first);
 
-        HNSWNode& second_node =
+        HNSWNode &second_node =
             *nodes_.at(second);
 
         if (
             level > first_node.level() ||
-            level > second_node.level()
-            ) {
+            level > second_node.level())
+        {
             throw std::invalid_argument(
-                "Level exceeds node level"
-            );
+                "Level exceeds node level");
         }
 
-        auto& first_neighbours =
+        auto &first_neighbours =
             first_node.neighbors(level);
 
         first_neighbours.erase(
             std::remove(
                 first_neighbours.begin(),
                 first_neighbours.end(),
-                second
-            ),
-            first_neighbours.end()
-        );
+                second),
+            first_neighbours.end());
 
-        auto& second_neighbours =
+        auto &second_neighbours =
             second_node.neighbors(level);
 
         second_neighbours.erase(
             std::remove(
                 second_neighbours.begin(),
                 second_neighbours.end(),
-                first
-            ),
-            second_neighbours.end()
-        );
+                first),
+            second_neighbours.end());
     }
 
     std::vector<HNSWSearchResult> HNSWIndex::search(
-        const vector::Vector& query,
+        const vector::Vector &query,
         std::size_t k,
-        std::size_t ef_search
-    ) const {
-        if (query.dimension() != dimension_) {
+        std::size_t ef_search) const
+    {
+        if (query.dimension() != dimension_)
+        {
             throw std::invalid_argument(
-                "Query dimension does not match index dimension"
-            );
+                "Query dimension does not match index dimension");
         }
 
-        if (k == 0) {
+        if (k == 0)
+        {
             throw std::invalid_argument(
-                "k must be greater than zero"
-            );
+                "k must be greater than zero");
         }
 
-        if (ef_search == 0) {
+        if (ef_search == 0)
+        {
             throw std::invalid_argument(
-                "ef_search must be greater than zero"
-            );
+                "ef_search must be greater than zero");
         }
 
-        if (nodes_.empty()) {
+        if (nodes_.empty())
+        {
             return {};
         }
 
         const std::size_t search_ef =
             std::max(
                 ef_search,
-                k
-            );
+                k);
 
         std::size_t current_entry =
             entry_point_;
@@ -1039,101 +1023,89 @@ namespace cortex::index {
         for (
             std::size_t level = max_level_;
             level > 0;
-            --level
-            ) {
+            --level)
+        {
             current_entry =
                 greedySearch(
                     query,
                     current_entry,
-                    level
-                );
+                    level);
         }
         const auto candidates =
             search_layer(
                 query,
-                { current_entry },
+                {current_entry},
                 search_ef,
-                0
-            );
+                0);
 
         const std::size_t result_count =
             std::min(
                 k,
-                candidates.size()
-            );
+                candidates.size());
 
         return std::vector<HNSWSearchResult>(
             candidates.begin(),
-            candidates.begin() + result_count
-        );
+            candidates.begin() + result_count);
     }
 
     std::vector<HNSWSearchResult> HNSWIndex::search(
-        const vector::Vector& query,
-        std::size_t k
-    ) const {
+        const vector::Vector &query,
+        std::size_t k) const
+    {
         return search(
             query,
             k,
-            ef_search_
-        );
+            ef_search_);
     }
 
-     // read the existing nodes 
-    const std::unordered_map<std::size_t,std::unique_ptr<HNSWNode>>& HNSWIndex::nodes() const
+    // read the existing nodes
+    const std::unordered_map<std::size_t, std::unique_ptr<HNSWNode>> &HNSWIndex::nodes() const
     {
         return nodes_;
     }
 
-
-    //vector store 
-    const core::VectorStore& HNSWIndex::vector_store() const
+    // vector store
+    const core::VectorStore &HNSWIndex::vector_store() const
     {
         return vector_store_;
     }
-
-
-
 
     // restore the vector
     bool HNSWIndex::restore_vector(
         core::VectorId id,
         vector::Vector vector,
-        core::metaData metadata
-    ) {
+        core::metaData metadata)
+    {
         return vector_store_.restore(
             id,
             std::move(vector),
-            std::move(metadata)
-        );
+            std::move(metadata));
     }
     // restore the nodes
     bool HNSWIndex::restore_node(
         std::size_t id,
-        std::size_t level
-    ) {
-        if (!vector_store_.contains(id)) {
+        std::size_t level)
+    {
+        if (!vector_store_.contains(id))
+        {
             throw std::out_of_range(
-                "Cannot restore HNSW node without vector"
-            );
+                "Cannot restore HNSW node without vector");
         }
 
-        if (nodes_.contains(id)) {
+        if (nodes_.contains(id))
+        {
             throw std::invalid_argument(
-                "HNSW node ID already exists"
-            );
+                "HNSW node ID already exists");
         }
 
         auto node =
             std::make_unique<HNSWNode>(
                 id,
-                level
-            );
+                level);
 
         nodes_.emplace(
             id,
-            std::move(node)
-        );
+            std::move(node));
 
         return true;
     }
@@ -1141,64 +1113,61 @@ namespace cortex::index {
     bool HNSWIndex::restore_edge(
         std::size_t first,
         std::size_t second,
-        std::size_t level
-    ) {
-        if (!nodes_.contains(first)) {
+        std::size_t level)
+    {
+        if (!nodes_.contains(first))
+        {
             throw std::out_of_range(
-                "First HNSW node does not exist"
-            );
+                "First HNSW node does not exist");
         }
 
-        if (!nodes_.contains(second)) {
+        if (!nodes_.contains(second))
+        {
             throw std::out_of_range(
-                "Second HNSW node does not exist"
-            );
+                "Second HNSW node does not exist");
         }
 
-        if (first == second) {
+        if (first == second)
+        {
             throw std::invalid_argument(
-                "HNSW node cannot connect to itself"
-            );
+                "HNSW node cannot connect to itself");
         }
 
-        HNSWNode& first_node =
+        HNSWNode &first_node =
             *nodes_.at(first);
 
-        HNSWNode& second_node =
+        HNSWNode &second_node =
             *nodes_.at(second);
 
         if (
             level > first_node.level() ||
-            level > second_node.level()
-            ) {
+            level > second_node.level())
+        {
             throw std::invalid_argument(
-                "Level exceeds node level"
-            );
+                "Level exceeds node level");
         }
 
-        auto& first_neighbours =
+        auto &first_neighbours =
             first_node.neighbors(level);
 
         if (
             std::find(
                 first_neighbours.begin(),
                 first_neighbours.end(),
-                second
-            ) == first_neighbours.end()
-            ) {
+                second) == first_neighbours.end())
+        {
             first_neighbours.push_back(second);
         }
 
-        auto& second_neighbours =
+        auto &second_neighbours =
             second_node.neighbors(level);
 
         if (
             std::find(
                 second_neighbours.begin(),
                 second_neighbours.end(),
-                first
-            ) == second_neighbours.end()
-            ) {
+                first) == second_neighbours.end())
+        {
             second_neighbours.push_back(first);
         }
 
@@ -1206,34 +1175,36 @@ namespace cortex::index {
     }
 
     // restoration api
-    void HNSWIndex::restore_state(std::size_t entry_point,std::size_t max_level) {
-        if (nodes_.empty()) {
+    void HNSWIndex::restore_state(std::size_t entry_point, std::size_t max_level)
+    {
+        if (nodes_.empty())
+        {
             if (
                 entry_point !=
-                std::numeric_limits<std::size_t>::max()
-            ) {
+                std::numeric_limits<std::size_t>::max())
+            {
                 throw std::invalid_argument(
-                    "Empty HNSW index cannot have an entry point"
-                );
+                    "Empty HNSW index cannot have an entry point");
             }
 
-            if (max_level != 0) {
+            if (max_level != 0)
+            {
                 throw std::invalid_argument(
-                    "Empty HNSW index must have max level zero"
-                );
+                    "Empty HNSW index must have max level zero");
             }
         }
-        else {
-            if (!nodes_.contains(entry_point)) {
+        else
+        {
+            if (!nodes_.contains(entry_point))
+            {
                 throw std::out_of_range(
-                    "HNSW entry point does not exist"
-                );
+                    "HNSW entry point does not exist");
             }
 
-            if (max_level > nodes_.at(entry_point)->level()) {
+            if (max_level > nodes_.at(entry_point)->level())
+            {
                 throw std::invalid_argument(
-                    "Persisted max level exceeds entry point level"
-                );
+                    "Persisted max level exceeds entry point level");
             }
         }
 
@@ -1242,8 +1213,8 @@ namespace cortex::index {
     }
 
     void HNSWIndex::restore_next_id(
-        core::VectorId next_id
-    ) {
+        core::VectorId next_id)
+    {
         vector_store_.restore_next_id(next_id);
     }
 }

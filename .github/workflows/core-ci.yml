@@ -1,0 +1,13 @@
+name: Cortex core CI
+on: [push, pull_request]
+jobs:
+  core:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build-core -DCORTEX_CORE_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-core --config Release --parallel 2
+      - run: ctest --test-dir build-core -C Release --output-on-failure

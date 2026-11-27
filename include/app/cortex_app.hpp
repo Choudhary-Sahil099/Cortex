@@ -38,7 +38,8 @@ namespace cortex::app
         void indexDirectory(const std::string &directory);
         std::size_t indexSize() const;
         std::vector<index::VectorSearchResult> search(const std::string& query,std::size_t k = 5) const;
-        std::vector<index::VectorSearchResult> hybridSearch(const std::string& query,std::size_t k = 5) const;
+        std::vector<index::VectorSearchResult> hybridSearch(const std::string& query,std::size_t k = 5,
+            std::size_t candidate_k = 0, double lexical_weight = 1.0) const;
         
     private:
         const embedding::Embedder &embedder_;

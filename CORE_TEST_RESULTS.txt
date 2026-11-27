@@ -1,0 +1,12 @@
+Local verification (Linux x86-64, Release core-only build)
+c++ (Debian 14.2.0-19) 14.2.0
+cmake version 3.31.6
+Internal ctest changing into directory: /tmp/cortex-build
+Test project /tmp/cortex-build
+    Start 1: cortex_hardening_tests
+1/1 Test #1: cortex_hardening_tests ...........   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.00 sec
+PASS: BM25, mutation/reload, atomic replacement, failure cleanup, corrupt count, SIMD parity

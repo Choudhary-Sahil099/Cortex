@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 namespace cortex::index
 {
@@ -39,6 +40,13 @@ namespace cortex::index
         const HNSWIndex &hnsw() const;
 
     private:
+        // External synchronization is required for all access to this index.
+        struct Posting { std::size_t id; std::size_t frequency; };
+        mutable bool lexical_dirty_ = true;
+        mutable std::unordered_map<std::string, std::vector<Posting>> postings_;
+        mutable std::unordered_map<std::size_t, std::size_t> lengths_;
+        mutable double average_length_ = 0.0;
+        void rebuildLexicalIndex() const;
         HNSWIndex hnsw_;
     };
 

@@ -1,10 +1,10 @@
 #include "retrival/retriever.hpp" //AFter the version 2 spelling mistakes will be corrected
 #include "retrival/query_transformer.hpp"
 #include <stdexcept>
+#include <cmath>
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
 // responsibility of the retriever is
 //  text --> Embedder -->  vector --> VectorIndex -- > results || this is the workflow of the retriever
 
@@ -15,28 +15,28 @@ namespace
     std::vector<cortex::index::VectorSearchResult> fuseRankings(
         const std::vector<cortex::index::VectorSearchResult> &semantic_results,
         const std::vector<cortex::index::VectorSearchResult> &lexical_results,
-        std::size_t k)
+        std::size_t k, double lexical_weight)
     {
         using Result = cortex::index::VectorSearchResult;
 
         std::unordered_map<std::size_t, double> scores;
         std::unordered_map<std::size_t, Result> result_by_id;
 
-        const auto accumulate = [&](const std::vector<Result> &ranked_results)
+        const auto accumulate = [&](const std::vector<Result> &ranked_results, double weight)
         {
             for (std::size_t rank = 0; rank < ranked_results.size(); ++rank)
             {
                 const auto &result = ranked_results[rank];
 
                 scores[result.id] +=
-                    1.0 / (RRF_CONSTANT + static_cast<double>(rank + 1));
+                    weight / (RRF_CONSTANT + static_cast<double>(rank + 1));
 
                 result_by_id.try_emplace(result.id, result);
             }
         };
 
-        accumulate(semantic_results);
-        accumulate(lexical_results);
+        accumulate(semantic_results, 1.0);
+        accumulate(lexical_results, lexical_weight);
 
         std::vector<Result> results;
         results.reserve(scores.size());
@@ -138,7 +138,9 @@ namespace cortex::retrieval
     }
     std::vector<index::VectorSearchResult> Retriever::hybridSearch(
         const std::string &query,
-        std::size_t k) const
+        std::size_t k,
+        std::size_t candidate_k,
+        double lexical_weight) const
     {
         if (query.empty())
         {
@@ -150,44 +152,22 @@ namespace cortex::retrieval
             throw std::invalid_argument("Hybrid search k must be greater than zero");
         }
 
+        if (!std::isfinite(lexical_weight) || lexical_weight <= 0.0 || lexical_weight > 10.0)
+            throw std::invalid_argument("Lexical weight must be finite and in (0, 10]");
+
+        // Zero preserves the original behavior for existing callers.
+        if (candidate_k == 0) candidate_k = k;
+        if (candidate_k < k)
+            throw std::invalid_argument("Candidate count must be at least k");
+
         // semantic results using query transformation
         const std::string transformed_query =QueryTransformer::transform(query);
         const std::vector<float> query_embedding =embedder_.embed(transformed_query);
-        const auto semantic_results = index_.search(query_embedding, k);
+        const auto semantic_results = index_.search(query_embedding, candidate_k);
 
         // contain the lexical results
-        const auto lexical_results = index_.lexicalSearch(transformed_query, k);
+        const auto lexical_results = index_.lexicalSearch(transformed_query, candidate_k);
         
-        std::cout << "\nSemantic ranking:\n";
-        for (std::size_t i = 0; i < semantic_results.size(); ++i)
-        {
-            const auto &result = semantic_results[i];
-            std::cout << i + 1 << ". ";
-
-            if (result.record != nullptr &&
-                result.record->metadata.count("chunk_id"))
-            {
-                std::cout << result.record->metadata.at("chunk_id");
-            }
-
-            std::cout << " (distance=" << result.distance << ")\n";
-        }
-
-        std::cout << "\nLexical ranking:\n";
-        for (std::size_t i = 0; i < lexical_results.size(); ++i)
-        {
-            const auto &result = lexical_results[i];
-            std::cout << i + 1 << ". ";
-
-            if (result.record != nullptr &&
-                result.record->metadata.count("chunk_id"))
-            {
-                std::cout << result.record->metadata.at("chunk_id");
-            }
-
-            std::cout << " (lexical score=" << result.distance << ")\n";
-        }
-
-        return fuseRankings(semantic_results, lexical_results, k);
+        return fuseRankings(semantic_results, lexical_results, k, lexical_weight);
     }
 }

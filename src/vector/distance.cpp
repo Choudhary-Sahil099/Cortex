@@ -1,4 +1,5 @@
 #include "vector/distance.hpp"
+#include "simd_kernels.hpp"
 #include "vector/backend.hpp"
 
 #include <cmath>
@@ -9,15 +10,10 @@ namespace cortex::vector
 {
 
 
-    float l2_distance(
-        const Vector& a,
-        const Vector& b)
-    {
-        return get_vector_backend().l2_distance(a, b);
-    }
 
 
-    float l2_distance_avx2(
+
+    float l2_distance_avx2_impl(
         const Vector& a,
         const Vector& b)
     {
@@ -88,7 +84,10 @@ namespace cortex::vector
     }
 
 
-    float l2_distance_avx2_fma(
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((target("avx2,fma")))
+#endif
+    float l2_distance_avx2_fma_impl(
         const Vector& a,
         const Vector& b)
     {
@@ -250,7 +249,7 @@ namespace cortex::vector
 
         return std::sqrt(result);
     }
-    float l2_distance_avx2(
+    float l2_distance_avx2_impl(
         const float* x,
         const float* y,
         std::size_t n)
@@ -305,7 +304,10 @@ namespace cortex::vector
 
         return std::sqrt(sum);
     }
-    float l2_distance_avx2_fma(
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((target("avx2,fma")))
+#endif
+    float l2_distance_avx2_fma_impl(
         const float* x,
         const float* y,
         std::size_t n)
@@ -387,17 +389,5 @@ namespace cortex::vector
         return std::sqrt(result);
     }
 
-    float l2_distance(
-        const float* a,
-        const float* b,
-        std::size_t dimension)
-    {
-        const auto& backend = get_vector_backend();
 
-        return backend.raw_l2_distance(
-            a,
-            b,
-            dimension
-        );
-    }
 }

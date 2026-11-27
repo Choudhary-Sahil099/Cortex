@@ -1,4 +1,5 @@
 #include "vector/batch_distance_simd.hpp"
+#include "simd_kernels.hpp"
 
 #include <immintrin.h>
 #include <cmath>
@@ -45,7 +46,7 @@ namespace cortex::vector
     }
 
 
-    void batch_l2_distance_avx2(
+    void batch_l2_distance_avx2_impl(
         const Vector& query,
         const std::vector<Vector>& vectors,
         std::vector<float>& distances)
@@ -130,7 +131,10 @@ namespace cortex::vector
     }
 
 
-    void batch_l2_distance_avx2_fma(
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((target("avx2,fma")))
+#endif
+    void batch_l2_distance_avx2_fma_impl(
         const Vector& query,
         const std::vector<Vector>& vectors,
         std::vector<float>& distances)
