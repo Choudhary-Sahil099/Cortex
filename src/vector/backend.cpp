@@ -14,8 +14,10 @@ namespace cortex::vector
         if (features.avx2 && features.fma)
             return DistanceBackend::AVX2_FMA;
 
+#ifndef _MSC_VER
         if (features.avx2)
             return DistanceBackend::AVX2;
+#endif
 
         return DistanceBackend::Scalar;
     }

@@ -28,7 +28,8 @@ public:
     std::vector<index::VectorSearchResult> search(const std::string& query,std::size_t k,float max_distance) const;
 
     //hybrid search
-    std::vector<index::VectorSearchResult> hybridSearch(const std::string& query,std::size_t k) const;
+    std::vector<index::VectorSearchResult> hybridSearch(const std::string& query,std::size_t k,
+        std::size_t candidate_k = 0, double lexical_weight = 1.0) const;
 
 private:
     const embedding::Embedder& embedder_;

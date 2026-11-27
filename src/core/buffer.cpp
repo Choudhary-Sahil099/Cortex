@@ -1,12 +1,24 @@
 #include "core/buffer.hpp"
 
 #include <cstdlib>
+#include <limits>
+#ifdef _WIN32
 #include <malloc.h>
+#endif
 #include <cstring>
 #include <stdexcept>
 #include <utility>
 
 namespace cortex::core {
+    namespace {
+        void release(void* ptr) noexcept {
+#ifdef _WIN32
+            _aligned_free(ptr);
+#else
+            std::free(ptr);
+#endif
+        }
+    }
 
     Buffer::Buffer(std::size_t size, std::size_t alignment)
         : data_(nullptr),
@@ -17,12 +29,18 @@ namespace cortex::core {
         if (alignment == 0 || (alignment & (alignment - 1)))
             throw std::invalid_argument("Alignment not valid");
 
+        if (size > std::numeric_limits<std::size_t>::max() - (alignment - 1)) throw std::bad_alloc();
         std::size_t allocated_size = size;
         if (size % alignment != 0) {
 			allocated_size = ((size + alignment - 1) / alignment)* alignment;
         }
         if (size == 0) return;
+#ifdef _WIN32
         data_ = _aligned_malloc(allocated_size, alignment);
+#else
+        const auto actual_alignment = alignment < alignof(void*) ? alignof(void*) : alignment;
+        if (::posix_memalign(&data_, actual_alignment, allocated_size) != 0) data_ = nullptr;
+#endif
 
         if (!data_) {
             throw std::bad_alloc();
@@ -32,7 +50,7 @@ namespace cortex::core {
 
     Buffer::~Buffer()
     {
-        _aligned_free(data_);
+        release(data_);
     }
 
     Buffer::Buffer(Buffer&& other) noexcept
@@ -49,7 +67,7 @@ namespace cortex::core {
     {
         if (this != &other)
         {
-            _aligned_free(data_);
+            release(data_);
 
             data_ = other.data_;
             size_ = other.size_;

@@ -30,3 +30,11 @@ models/
 emails_mixed_50/
 data/
 .env.backup_50emails
+.env.backup-20261127-113044
+
+# Dependency-free core build
+build-core/
+data/
+vcpkg_installed/
+build-full/
+datasets/

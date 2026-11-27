@@ -12,21 +12,48 @@ project(Cortex
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+option(CORTEX_CORE_ONLY "Build dependency-free core and regression tests" OFF)
+set(CORTEX_ENGINE_SOURCES
+    src/core/buffer.cpp src/core/cpu_features.cpp src/core/vector_store.cpp
+    src/vector/vector.cpp src/vector/vector_batch.cpp src/vector/vector_store.cpp
+    src/vector/distance.cpp src/vector/distance_scalar.cpp src/vector/dot_product.cpp
+    src/vector/batch_distance.cpp src/vector/batch_distance_reference.cpp
+    src/vector/batch_distance_simd.cpp src/vector/search.cpp src/vector/backend.cpp
+    src/vector/similarity.cpp src/vector/dispatch.cpp
+    src/index/hnsw_node.cpp src/index/hnsw.cpp src/index/hnsw_level_generator.cpp
+    src/index/neighbour_selection.cpp src/index/vector_index.cpp
+    src/persistence/serializer.cpp src/persistence/index_manager.cpp
+)
+# Only intrinsic-bearing translation units receive AVX2 flags.
+if(MSVC)
+    set_source_files_properties(src/vector/distance.cpp src/vector/dot_product.cpp src/vector/batch_distance_simd.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(src/vector/distance.cpp src/vector/dot_product.cpp src/vector/batch_distance_simd.cpp PROPERTIES COMPILE_OPTIONS "-mavx2;-ffp-contract=off")
+endif()
+if(CORTEX_CORE_ONLY)
+    add_library(cortex_core ${CORTEX_ENGINE_SOURCES})
+    target_include_directories(cortex_core PUBLIC include)
+    enable_testing()
+    add_executable(cortex_hardening_tests tests/hardening/core_regression.cpp)
+    target_link_libraries(cortex_hardening_tests PRIVATE cortex_core)
+    add_test(NAME cortex_hardening_tests COMMAND cortex_hardening_tests)
+    return()
+endif()
 
 #==============
 # ONNX 
 #===========
-set(ONNXRUNTIME_ROOT
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/onnxruntime
-)
+set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/onnxruntime" CACHE PATH "ONNX Runtime SDK root")
 
 set(ONNXRUNTIME_INCLUDE_DIR
     ${ONNXRUNTIME_ROOT}/include
 )
 
-set(ONNXRUNTIME_LIBRARY
-    ${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib
-)
+if(WIN32)
+    set(ONNXRUNTIME_LIBRARY ${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib)
+else()
+    set(ONNXRUNTIME_LIBRARY ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so)
+endif()
 
 set(ONNXRUNTIME_DLL
     ${ONNXRUNTIME_ROOT}/lib/onnxruntime.dll
@@ -40,37 +67,7 @@ set(ONNXRUNTIME_DLL
 
 add_library(cortex_core
 
-    #core files
-    src/core/buffer.cpp
-    src/core/cpu_features.cpp
-    src/core/vector_store.cpp
-
-    #vector files
-    src/vector/vector.cpp
-    src/vector/vector_batch.cpp
-    src/vector/vector_store.cpp
-    src/vector/distance.cpp
-    src/vector/distance_scalar.cpp
-    src/vector/dot_product.cpp
-    src/vector/batch_distance.cpp
-    src/vector/batch_distance_reference.cpp
-    src/vector/batch_distance_simd.cpp
-    src/vector/search.cpp
-    src/vector/backend.cpp
-    src/vector/similarity.cpp
-
-    #index files
-    src/index/hnsw_node.cpp # kepp this above
-    src/index/hnsw.cpp
-    src/index/hnsw_level_generator.cpp
-    src/index/neighbour_selection.cpp
-    src/index/vector_index.cpp
-
-
-    #persistence
-    src/persistence/serializer.cpp
-    src/persistence/index_manager.cpp
-
+    ${CORTEX_ENGINE_SOURCES}
 
     #email ingestion
     src/email/email_document.cpp
@@ -126,38 +123,6 @@ target_link_libraries(cortex_core
 # CPU / SIMD Configuration
 # ============================================================
 
-if(MSVC)
-
-    # target_compile_options() is used to set compiler flags for the cortex_core library.
-    target_compile_options(cortex_core PRIVATE
-        /arch:AVX2
-    )
-
-    # Generate MSVC assembly listing for distance.cpp
-    set_source_files_properties(
-        src/vector/distance.cpp
-        PROPERTIES
-            COMPILE_OPTIONS
-                "/FAcs;/Fa${CMAKE_CURRENT_BINARY_DIR}/distance.asm"
-    )
-
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-
-    target_compile_options(cortex_core PRIVATE
-        -mavx2
-        -mfma
-    )
-
-    # Generate assembly for the distance implementation.
-    set_source_files_properties(
-        src/vector/distance.cpp
-        PROPERTIES
-            COMPILE_OPTIONS
-                "-S;-masm=intel"
-    )
-
-endif()
-
 # ============================================================
 # Cortex Application
 # ============================================================
@@ -175,7 +140,7 @@ target_link_libraries(cortex
 # Dependencies
 # ============================================================
 
-find_package(CURL CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 include(FetchContent)
@@ -222,6 +187,10 @@ FetchContent_MakeAvailable(googletest)
 # ============================================================
 
 enable_testing()
+
+add_executable(cortex_hardening_tests tests/hardening/core_regression.cpp)
+target_link_libraries(cortex_hardening_tests PRIVATE cortex_core)
+add_test(NAME cortex_hardening_tests COMMAND cortex_hardening_tests)
 
 add_executable(cortex_tests
     #core tests
@@ -362,46 +331,16 @@ target_link_libraries(
         cortex_core
 )
 
-add_custom_command(
-    TARGET bge_onnx_experiment
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${ONNXRUNTIME_DLL}
-        $<TARGET_FILE_DIR:bge_onnx_experiment>
-)
-
-# ===============
-# ONNX Runtime DLL
-# ==================
-
-add_custom_command(
-    TARGET cortex
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${ONNXRUNTIME_DLL}
-        $<TARGET_FILE_DIR:cortex>
-)
-
-add_custom_command(
-    TARGET cortex_tests
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${ONNXRUNTIME_DLL}
-        $<TARGET_FILE_DIR:cortex_tests>
-)
+if(WIN32)
+    foreach(target cortex cortex_tests cortex_hardening_tests cortex_benchmarks bge_onnx_experiment hnsw_recall_latency llm_test rag_local_llm)
+        add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ONNXRUNTIME_DLL}" $<TARGET_FILE_DIR:${target}>)
+    endforeach()
+endif()
 # ============================================================
 # Build Information
 # ============================================================
 
-if(MSVC)
-    add_custom_command(
-        TARGET cortex_core
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo
-            "Cortex SIMD assembly generated at:"
-            "${CMAKE_CURRENT_BINARY_DIR}/distance.asm"
-    )
-endif()
+
 #  llama-cli --version 
 # winget install llama.cpp   
 # where.exe llama-server

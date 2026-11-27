@@ -468,8 +468,6 @@ namespace
         double exact_recall_sum = 0.0;
         double relevant_recall_sum = 0.0;
 
-        const auto search_start = Clock::now();
-
         for (const auto &query : queries)
         {
             const auto query_vector = toVector(query.embedding);
@@ -519,40 +517,12 @@ namespace
                 query.relevant_chunk_ids);
 
             relevant_recall_sum += query_recall;
-
-            // Print the relevance miss only for the selected configuration.
-            if (query_recall < 1.0 &&
-                config.M == 16 &&
-                config.ef_construction == 200)
-            {
-
-                std::cout << "\n[RELEVANCE MISS]\n";
-                std::cout << "Query: " << query.text << '\n';
-
-                std::cout << "Expected chunk(s): ";
-                for (const auto &id : query.relevant_chunk_ids)
-                {
-                    std::cout << id << ' ';
-                }
-
-                std::cout << "\nRetrieved top " << K << ":\n";
-
-                for (std::size_t i = 0; i < results.size(); ++i)
-                {
-                    std::cout << "  Rank " << (i + 1)
-                              << ": " << retrieved_chunk_ids[i]
-                              << ", distance=" << results[i].distance
-                              << '\n';
-                }
-            }
         }
 
-        const auto search_end = Clock::now();
-
+        // Use the same search-only timing scope as the latency percentiles.
+        // Recall bookkeeping and diagnostic output are not search operations.
         const double elapsed_seconds =
-            std::chrono::duration<double>(
-                search_end - search_start)
-                .count();
+            std::accumulate(latencies_us.begin(), latencies_us.end(), 0.0) / 1e6;
 
         metrics.qps = elapsed_seconds > 0.0
                           ? static_cast<double>(queries.size()) / elapsed_seconds
@@ -1185,8 +1155,8 @@ namespace
                              "relevant chunks.\n"
                           << "  Vector MB estimates vector payload only; it is "
                              "not total RAM usage.\n"
-                          << "  Query embedding time is excluded from search "
-                             "latency and QPS.\n"
+                          << "  Search QPS uses the sum of timed index.search calls; "
+                             "embedding, recall bookkeeping and output are excluded.\n"
                           << "  The persistent index was loaded read-only; "
                              "test graphs were built in memory.\n\n";
 

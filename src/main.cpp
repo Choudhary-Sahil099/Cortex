@@ -3,7 +3,9 @@
 #include "llm/local_llm.hpp"
 #include "app/enviroment.hpp"
 #include "evaluation/retrieval_metric.hpp"
+#include "retrival/adaptive_retrieval.hpp"
 #include <fstream>
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 #include <cstdlib>
@@ -23,7 +25,7 @@ namespace
             << "Usage:\n"
             << "  cortex index <email-directory>\n"
             << "  cortex ask <question>\n"
-            << "  cortex evaluate <dataset-path>\n"
+            << "  cortex evaluate <dataset-path> [candidate-k] [lexical-weight] [adaptive]\n"
             << "  cortex inspect\n"
             << "  cortex help\n";
     }
@@ -168,6 +170,35 @@ int main(
         {
             const auto dataset = loadEvaluationDataset(argv[2]);
             constexpr std::size_t k = 5;
+            std::size_t candidate_k = k;
+            if (argc > 6)
+                throw std::invalid_argument("Usage: cortex evaluate <dataset-path> [candidate-k] [lexical-weight] [adaptive]");
+            if (argc >= 4)
+            {
+                const std::string depth = argv[3];
+                if (depth.empty() || depth.find_first_not_of("0123456789") != std::string::npos)
+                    throw std::invalid_argument("candidate-k must be an integer from 5 to 1000");
+                const auto value = std::stoull(depth);
+                if (value < k || value > 1000)
+                    throw std::invalid_argument("candidate-k must be an integer from 5 to 1000");
+                candidate_k = static_cast<std::size_t>(value);
+            }
+
+            double lexical_weight = 1.0;
+            if (argc >= 5)
+            {
+                const std::string weight = argv[4];
+                std::size_t consumed = 0;
+                lexical_weight = std::stod(weight, &consumed);
+                if (consumed != weight.size() || !std::isfinite(lexical_weight) ||
+                    lexical_weight <= 0.0 || lexical_weight > 10.0)
+                    throw std::invalid_argument("lexical-weight must be finite and in (0, 10]");
+            }
+
+            const bool adaptive = argc == 6;
+            if (adaptive && std::string(argv[5]) != "adaptive")
+                throw std::invalid_argument("Final argument must be adaptive");
+            const char* method = adaptive ? "Adaptive" : "Hybrid";
 
             struct Metrics
             {
@@ -221,12 +252,34 @@ int main(
 
             std::cout << "Cortex Retrieval Comparison\n"
                       << "Queries: " << dataset.size() << "\n"
-                      << "K: " << k << "\n\n";
+                      << "K: " << k << "\n"
+                      << "Hybrid candidate K: " << candidate_k << "\n"
+                      << "RRF lexical weight: " << lexical_weight << "\n"
+                      << "Retrieval mode: " << method << "\n\n";
 
             for (const auto &item : dataset)
             {
                 const auto semantic_results = app.search(item.query, k);
-                const auto hybrid_results = app.hybridSearch(item.query, k);
+                using cortex::retrieval::AdaptiveRoute;
+                const auto plan = adaptive ? cortex::retrieval::planAdaptiveRetrieval(item.query)
+                    : cortex::retrieval::AdaptivePlan{AdaptiveRoute::Hybrid, item.query, {}};
+                const auto hybrid_results = [&]() {
+                    switch (plan.route) {
+                        case AdaptiveRoute::Contrast:
+                            return app.search(plan.first, k);
+                        case AdaptiveRoute::Temporal:
+                            return semantic_results;
+                        case AdaptiveRoute::Identifier:
+                            return app.hybridSearch(plan.first, k, candidate_k, 1.5);
+                        case AdaptiveRoute::Compound: {
+                            const auto first = app.hybridSearch(plan.first, k, candidate_k, lexical_weight);
+                            const auto second = app.hybridSearch(plan.second, k, candidate_k, lexical_weight);
+                            return cortex::retrieval::mergeAdaptiveRankings(first, second, k);
+                        }
+                        default:
+                            return app.hybridSearch(item.query, k, candidate_k, lexical_weight);
+                    }
+                }();
 
                 const auto [semantic, semantic_ids] =
                     evaluate_results(semantic_results, item);
@@ -242,6 +295,8 @@ int main(
                 hybrid_total.ndcg += hybrid.ndcg;
 
                 std::cout << "Query: " << item.query << "\n";
+                if (adaptive)
+                    std::cout << "  Route: " << cortex::retrieval::routeName(plan.route) << "\n";
 
                 std::cout << "  Semantic-only: ";
                 for (const auto &id : semantic_ids)
@@ -253,7 +308,7 @@ int main(
                           << ", RR: " << semantic.rr
                           << ", nDCG@5: " << semantic.ndcg << "\n";
 
-                std::cout << "  Hybrid:        ";
+                std::cout << "  " << method << ":        ";
                 for (const auto &id : hybrid_ids)
                 {
                     std::cout << id << " ";
@@ -272,15 +327,15 @@ int main(
             std::cout << "=== Aggregate Results ===\n"
                       << "Semantic-only Mean Recall@5: "
                       << semantic_recall << "\n"
-                      << "Hybrid Mean Recall@5:        "
+                      << method << " Mean Recall@5:        "
                       << hybrid_recall << "\n"
                       << "Semantic-only MRR:            "
                       << semantic_total.rr / count << "\n"
-                      << "Hybrid MRR:                   "
+                      << method << " MRR:                   "
                       << hybrid_total.rr / count << "\n"
                       << "Semantic-only Mean nDCG@5:    "
                       << semantic_total.ndcg / count << "\n"
-                      << "Hybrid Mean nDCG@5:           "
+                      << method << " Mean nDCG@5:           "
                       << hybrid_total.ndcg / count << "\n";
 
             if (semantic_recall > 0.0)

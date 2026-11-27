@@ -1,4 +1,5 @@
 #include "vector/dot_product.hpp"
+#include "simd_kernels.hpp"
 #include "vector/backend.hpp"
 #include <immintrin.h>
 #include <stdexcept>
@@ -6,28 +7,9 @@
 namespace cortex::vector
 {
 
-    float dot_product_scalar(
-        const Vector& a,
-        const Vector& b)
-    {
-        if (a.dimension() != b.dimension())
-        {
-            throw std::invalid_argument(
-                "Vectors must have same dimensions"
-            );
-        }
 
-        float sum = 0.0f;
 
-        for (std::size_t i = 0; i < a.dimension(); ++i)
-        {
-            sum += a[i] * b[i];
-        }
-
-        return sum;
-    }
-
-    float dot_product_avx2(
+    float dot_product_avx2_impl(
         const Vector& a,
         const Vector& b)
     {
@@ -77,7 +59,10 @@ namespace cortex::vector
         return sum;
     }
 
-    float dot_product_avx2_fma(
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((target("avx2,fma")))
+#endif
+    float dot_product_avx2_fma_impl(
         const Vector& a,
         const Vector& b)
     {
@@ -142,10 +127,5 @@ namespace cortex::vector
 
         return result;
     }
-    float dot_product(
-        const Vector& a,
-        const Vector& b)
-    {
-        return get_vector_backend().dot_product(a, b);
-    }
+
 }
